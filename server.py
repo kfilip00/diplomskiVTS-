@@ -1,5 +1,7 @@
 import socket
 import threading
+import questionsAndAnswers
+import time
 
 #-------------------Classes
 class Room:
@@ -39,8 +41,11 @@ minPlayers=0 #minimalni broj igraca po sobi
 
 rooms=[]
 clients=[]
+questions=questionsAndAnswers.questions
 
 #-------------------Functions
+
+#rooms
 def joinRoom(name,conn):
     global maxPlayers
     for room in rooms:
@@ -72,6 +77,26 @@ def createRoom(name,conn):
     rooms.append(room)
     conn.send(f"inf Room with name: \"{name}\" created!".encode(encode_format))
     joinRoom(name,conn)
+def deleteRoom(room):
+        rooms.remove(room)
+def getRoom(roomName):
+    for room in rooms:
+        if room.name==roomName:
+            index=rooms.index(room)
+            return rooms[index]
+def leaveRoom(client):
+    roomName=client.room
+    room=getRoom(roomName)
+    room.players.remove(client)
+
+    if len(room.players)==0:
+        if roomName!="global":
+            deleteRoom(room)
+    else:
+        client.conn.send(f"inf Left room \"{roomName}\"!".encode(encode_format))
+        return
+
+#client
 def handleClient(conn): #tretira poruke od klijenta
     joinRoom(name="global",conn=conn)
     while True:
@@ -127,68 +152,75 @@ def newConnection():
 
             thread = threading.Thread(target=handleClient,args=(client.conn,))
             thread.start()
-
 def getClient(conn):
     for client in clients:
         if client.getConn() == conn:
             return client
-def getRoom(roomName):
-    for room in rooms:
-        if room.name==roomName:
-            index=rooms.index(room)
-            return rooms[index]
 def quitClient(conn):
     client=getClient(conn)
     clients.remove(client)
     conn.send("req quit".encode(encode_format))
     conn.close()
-def leaveRoom(client):
-    roomName=client.room
-    room=getRoom(roomName)
-    room.players.remove(client)
 
-    if len(room.players)==0:
-        if roomName!="global":
-            deleteRoom(room)
-    else:
-        client.conn.send(f"inf Left room \"{roomName}\"!".encode(encode_format))
-        return
+
+#game
 def handleGame(room):
     def broadCast(mess):
         for player in room.players:
             player.conn.send(str(mess).encode(encode_format))
+    def addBoxes(amount):
+        count=0
+        message="req add boxes:"
+        for x in amount:
+            message+=str(amount[count])+","
+        message=message[:-1]
+        broadCast(message)
+    def waitForPlayers():
+        #resetuje da li je igrac izvrsio ili ne
+        for player in room.players:
+            player.action=-1
+
+        #ceka da igrac izvrsi
+        loadedComplited=True
+        while loadedComplited:
+            for player in room.players:
+                if player.action!=1:
+                    loadedComplited=False
+            time.sleep(1)
 
 
     #ucitaj gameplay scenu
     broadCast("req Load gameplay scene")
+    waitForPlayers()
 
-    loadedComplited=True
-    while loadedComplited:
-        for player in room.players:
-            if player.action!=1:
-                loadedComplited=False
-
-    #spawnuj igrace
+    #imena igraca
     playersNames=""
     for player in room.players:
-        playersNames+=player.name+","
-        player.action=-1
-
+        playersNames+=str(player.name)+","
     playersNames=playersNames[:-1]
 
+    #spawnuj igrace sa imenima
     broadCast("req spawn players: "+str(playersNames))
-    loadedComplited=True
-    while loadedComplited:
-        for player in room.players:
-            if player.action!=1:
-                loadedComplited=False
+    waitForPlayers()
 
-    #pocni gameplay
-    
+    #daj svim igracima po 3 kutije
+    startingBoxes=[]
+    for player in room.players:
+        startingBoxes.append(3)
+    addBoxes(startingBoxes) #dodaje pocetne kutije
+    waitForPlayers()
+
+    countinuine = True
+    round=1
+    while countinuine:
+        if round==5:
+            break
 
 
-def deleteRoom(room):
-    rooms.remove(room)
+
+
+
+
 def startGame(conn):
     global minPlayers
     client=getClient(conn)
@@ -210,7 +242,10 @@ def confirmAction(conn):
     client.action=1
 
 
+
 #-------------------StartsServer
+
+
 server= socket.socket(socket.AF_INET,socket.SOCK_STREAM) #ozncava da cemo da radimo sa ipv4 adresama i da cemo koristiti TCP
 server.bind((host,port)) #binduje server
 server.listen() #pokrece
@@ -218,6 +253,7 @@ server.listen() #pokrece
 globalRoom=Room("global")
 globalRoom.maxPlayers=-1
 rooms.append(globalRoom)
+
 
 thread_handleConnections=threading.Thread(target=newConnection) #slusa za nove konekcije
 thread_handleConnections.start()

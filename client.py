@@ -20,20 +20,22 @@ def receive():
             if message[:3] =="req":
                 if message[4:]=="name":
                     client.send(nickname.encode(encode_format))
-                if message[4:]=="quit":
+                elif message[4:]=="quit":
                     print("Successfully disconnected")
                     connected=False
                     client.close()
                     return
-                if message[4:]=="Load gameplay scene":
+                elif message[4:]=="Load gameplay scene":
                     print("Load gameplay scene!")
                     #UCITAJ SCENU
                     client.send("/ca".encode(encode_format))
-                if message[4:18]=="spawn players:":
+                elif message[4:18]=="spawn players:":
                     playersNames=message[19:]
-                    players=playersNames.split(',')
-                    for name in players:
-                        print("spawn player:"+name)
+                    print("Spawn players:"+str(playersNames))
+                    client.send("/ca".encode(encode_format))
+                elif message[4:13]=="add boxes":
+                    amount=message[14:]
+                    print("Add boxes:"+str(amount))
                     client.send("/ca".encode(encode_format))
             elif message[:3]=="err":
                 if message[4:]=="nameTaken":
