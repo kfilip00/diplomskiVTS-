@@ -37,14 +37,23 @@ def receive():
                     amount=message[14:]
                     print("Add boxes:"+str(amount))
                     client.send("/ca".encode(encode_format))
+                elif message[4:17]=="add boxes":
+                    question=message[18:]
+                    print("Question:"+str(question))
+                elif message[4:16]=="remove boxes":
+                    amount=message[17:]
+                    print("Remove boxes:"+str(amount))
+                    client.send("/ca".encode(encode_format))
+                elif message[4:17]=="show question":
+                    question=message[18:]
+                    print("Question: "+str(question))
+                elif message[4:]=="die":
+                    print("You lost!\nAdd coins:60")
+                elif message[4:7]=="win":
+                    amount=message[8:]
+                    print("You won!\nAdd coins:"+amount)
             elif message[:3]=="err":
-                if message[4:]=="nameTaken":
-                    print("This name is taken!")
-                    connected=False
-                    client.close()
-                    return
-                else:
-                    print(message[4:])
+                print(message[4:])
             elif message != "":
                 print(message)
         except:
