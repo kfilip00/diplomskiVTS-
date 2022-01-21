@@ -1,39 +1,62 @@
 import socket
 import threading
+import time
+
 import questionsAndAnswers
 import random
+import mysql.connector
+from werkzeug.security import generate_password_hash,check_password_hash
+
 
 #-------------------Classes
+
 class Room:
     def __init__(self,name):
         self.name=name
         self.players=[]
         self.status="open"
 
-    def addPlayer(self,conn):
-        if self.status=="closed":
-            conn.send("Room is full".encode(encode_format))
-            return
+    def __str__(self):
+        return f"name={self.name},players={self.players},status={self.status}"
 
+    def addPlayer(self,conn):
         self.players.append(conn)
-        if len(self.players)==5:
-            self.status="closed"
+        if len(self.players)>=5 and self.name!="global":
+            self.status="full"
 
     def removePlayer(self,conn):
         self.players.remove(conn)
         self.status="open"
 class Client:
-    def __init__(self,conn,name):
+    def __init__(self,conn,name,playerId,friends,coins,points,boughtItems):
         self.conn=conn
         self.name=name
+        self.playerId=playerId
+        self.friends=friends
+        self.coins=coins
+        self.points=points
+        self.boughtItems=boughtItems
         self.room=""
         self.action=-1
         self.boxes=0
+
+    def __str__(self):
+        return f"""name={self.name},playerId={self.playerId},friends={self.friends},coins={self.coins},points={self.points},boughtItems={self.boughtItems},
+        room={self.room},action={self.action},boxes={self.boxes}"""
 
     def getConn(self):
         return self.conn
 
 #-------------------Variables
+dataBase = mysql.connector.connect(
+    passwd="", # lozinka za bazu
+    user="root", # korisnicko ime
+    database="zavrsnirad", # ime baze
+    port=3306, # port na kojem je mysql server
+    auth_plugin='mysql_native_password' # ako se koristi mysql 8.x
+)
+connection = dataBase.cursor(dictionary=True)
+
 host = "" #ip adresa servera
 port = 5000 #port na kome slusa server
 encode_format="utf-8"
@@ -47,12 +70,18 @@ questions=questionsAndAnswers.questions
 #-------------------Functions
 
 #rooms
-def joinRoom(name,conn):
+def joinRoom(name,conn,invited=False):
     global maxPlayers
     for room in rooms:
         if room.name==name:
-            if len(room.players)==maxPlayers and room.name!="global":
+            if room.status=="full":
                 conn.send(f"inf Room \"{room.name}\" is full!".encode(encode_format))
+                return
+            if room.status=="closed" and invited==False:
+                conn.send(f"inf Room \"{room.name}\" is closed!".encode(encode_format))
+                return
+            if room.status=="inprogress":
+                conn.send(f"inf Room \"{room.name}\" is in progress!".encode(encode_format))
                 return
             client=getClient(conn)
             if client.room==name:
@@ -60,14 +89,13 @@ def joinRoom(name,conn):
                 return
             if client.room!="":
                 leaveRoom(client)
-
             room.addPlayer(client)
             client.room=name
             conn.send(f"inf Successfully joined room: \"{name}\"".encode(encode_format))
             return
 
     conn.send(f"inf Cloudnt find room with name \"{name}\"".encode(encode_format))
-def createRoom(name,conn):
+def createRoom(name,conn,closed=False):
     for room in rooms:
         if room.name==name:
             conn.send("inf Room with this name already exsists!".encode(encode_format))
@@ -76,8 +104,12 @@ def createRoom(name,conn):
     room= Room(name)
     room.maxPlayers=5
     rooms.append(room)
+    if closed:
+        room.status="closed"
+    else:
+        room.status="open"
     conn.send(f"inf Room with name: \"{name}\" created!".encode(encode_format))
-    joinRoom(name,conn)
+    joinRoom(name,conn,True)
 def deleteRoom(room):
         rooms.remove(room)
 def getRoom(roomName):
@@ -105,9 +137,15 @@ def handleClient(conn): #tretira poruke od klijenta
                 if command=="/cr": #napravi sobu
                     name=message[4:]
                     createRoom(name,conn)
+                elif command=="/cc": #napravi zatvorenu sobu
+                    name=message[4:]
+                    createRoom(name,conn,True)
                 elif command=="/jr": #udji u sobu
                     name=message[4:]
                     joinRoom(name,conn)
+                elif command=="/jc": #udji u sobu
+                    name=message[4:]
+                    joinRoom(name,conn,True)
                 elif command=="/lv": #izadji iz sobe
                     joinRoom(name="global",conn=conn)
                 elif command=="/qu": #izadji iz igrice (kopletno)
@@ -129,20 +167,75 @@ def newConnection():
     while True:
         conn,address = server.accept() #ceka dok ne dodje do neke konekcije
 
-        #pita za nick i cuva ga
-        conn.send("req name".encode(encode_format))
-        name=conn.recv(1024).decode(encode_format)
 
-        client=Client(conn=conn,name=name)
-        clients.append(client)
+        conn.send("req acc".encode(encode_format)) #pita za account info
+        acc=conn.recv(1024).decode(encode_format).split(",") #ocekuje reg/log,email,lozinka,?nick
+        if acc[0]=="log":
+            #!login
+            sql="SELECT * FROM players where email=%s"
+            value=(acc[1],)
 
-        print(f"Client {name} joined!")
-        client.conn.send("inf Connected to server!".encode(encode_format))
+            connection.execute(sql,value)
+            account=connection.fetchone()
 
-        #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
+            if account:
+                if(check_password_hash(account["password"],acc[2])):
+                    #create client object
+                    client=Client(conn=conn,
+                                  name=account["name"],
+                                  playerId=account["playerId"],
+                                  friends=account["friends"],
+                                  coins=account["coins"],
+                                  points=account["points"],
+                                  boughtItems=account["boughtItems"])
+                    clients.append(client)
 
-        thread = threading.Thread(target=handleClient,args=(client.conn,))
-        thread.start()
+                    client.conn.send("inf Connected to server!".encode(encode_format))
+
+                    #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
+
+                    thread = threading.Thread(target=handleClient,args=(client.conn,))
+                    thread.start()
+                else:
+                    conn.send("err Wrong credentials".encode(encode_format))
+                    conn.close()
+            else:
+                conn.send("err Wrong credentials".encode(encode_format))
+                conn.close()
+        else:
+            #proveri da li emajl vec postoji
+            sql="SELECT email from players where email=%s"
+            value=(acc[1],)
+
+            connection.execute(sql,value)
+            exsists=connection.fetchall()
+
+            if exsists:
+                conn.send("err exsists".encode(encode_format))
+                conn.close()
+            else:
+                sql="INSERT INTO `players`(  `email`, `password`,`name`) VALUES (%s,%s,%s)"
+                value=(acc[1],generate_password_hash(acc[2]),acc[3])
+
+                connection.execute(sql,value)
+                dataBase.commit()
+
+                id=connection.lastrowid
+                client=Client(conn=conn,
+                              name=acc[3],
+                              playerId=id,
+                              friends="-",
+                              coins=0,
+                              points=0,
+                              boughtItems="-")
+                clients.append(client)
+
+                client.conn.send("inf Connected to server!".encode(encode_format))
+
+                #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
+
+                thread = threading.Thread(target=handleClient,args=(client.conn,))
+                thread.start()
 def getClient(conn):
     for client in clients:
         if client.getConn() == conn:
@@ -168,15 +261,21 @@ def handleGame(room):
             count+=1
         message=message[:-1]
         broadCast(message)
-    def waitForPlayers():
+    def waitForPlayers(waitTime=0):
         #ceka da igrac izvrsi
         wait=True
+        counter=0
         while wait:
             wait=False
             for player in room.players:
                 if player.action!=1:
                     wait=True
                     break
+            if counter>waitTime:
+                return
+            time.sleep(1)
+            counter+=1
+
         for player in room.players:
             player.action=-1
     def resetAnswers():
@@ -210,17 +309,40 @@ def handleGame(room):
     def checkIfSomeoneDied():
         for player in room.players:
             if player.boxes<0:
-                player.conn.send("req die".encode(encode_format))
+
+                deducePoints=0
+                if player.points>10:
+                    deducePoints=random.randrange(6,10)
+                    player.points-=deducePoints
+                player.coins+=60
+                sql=f"UPDATE players SET coins = coins+60,points=points-{deducePoints} WHERE playerId = %s;"
+                value=(player.playerId,)
+                connection.execute(sql,value)
+                dataBase.commit()
+
+                player.conn.send(f"req die 60,{deducePoints}".encode(encode_format))
                 joinRoom("global",player.conn)
+
+
     def rewardPlayers():
         for player in room.players:
-            player.conn.send(f"req win:{player.boxes*3+100}".encode(encode_format))
+            reward=player.boxes*3+100
+            points=random.randrange(5,8)
 
+            player.points+=points
+            player.coins+=reward
+
+            sql=f"UPDATE players SET coins = coins+{reward},points=points+{points} WHERE playerId = %s;"
+            value=(player.playerId,)
+            connection.execute(sql,value)
+            dataBase.commit()
+
+            player.conn.send(f"req win {reward},{points}".encode(encode_format))
 
 
     #ucitaj gameplay scenu
     broadCast("req Load gameplay scene")
-    waitForPlayers()
+    waitForPlayers(10)
 
     #imena igraca
     playersNames=""
@@ -231,14 +353,14 @@ def handleGame(room):
 
     #spawnuj igrace sa imenima
     broadCast("req spawn players: "+str(playersNames))
-    waitForPlayers()
+    waitForPlayers(5)
 
     #daj svim igracima po 3 kutije
     startingBoxes=[]
     for player in room.players:
         startingBoxes.append(3)
     addBoxes(startingBoxes) #dodaje pocetne kutije
-    waitForPlayers()
+    waitForPlayers(5)
 
     round=1
     while True:
@@ -249,17 +371,17 @@ def handleGame(room):
         question=random.choice(questions)
         broadCast("req show question:"+question[1])
 
-        waitForPlayers()#ceka dok igraci odgovore na pitanje
+        waitForPlayers(10)#ceka dok igraci odgovore na pitanje
 
         boxes=checkAnswers(question)
 
         addBoxes(boxes)
 
-        waitForPlayers()
+        waitForPlayers(10)
 
         removeBoxes(round+2)
 
-        waitForPlayers()
+        waitForPlayers(5)
 
         checkIfSomeoneDied()
 
@@ -285,6 +407,7 @@ def startGame(conn):
         return
     else:
         if len(room.players)>=minPlayers:
+            room.status="in progress"
             thread_handleGame=threading.Thread(target=handleGame,args=(room,))
             thread_handleGame.start()
         else:

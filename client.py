@@ -1,7 +1,18 @@
 import socket
 import threading
 
-nickname= input("Choose your nickname: ")
+#login
+while True:
+    acc=input("Do you have account? (Y/N): ").lower()
+    if acc=="y" or acc=="yes":
+        email= input("email: ")
+        password=input("password: ")
+        break
+    elif acc=="n" or acc=="no":
+        name=input("Your nickname: ")
+        email= input("email: ")
+        password=input("password: ")
+        break
 
 host = "localhost" #ip adresa servera
 port = 5000 #port na kome slusa server
@@ -18,8 +29,11 @@ def receive():
             #primi poruku od servera
             message=client.recv(1024).decode(encode_format)
             if message[:3] =="req":
-                if message[4:]=="name":
-                    client.send(nickname.encode(encode_format))
+                if message[4:]=="acc":
+                    if acc=="y" or acc=="yes":
+                        client.send(f"log,{email},{password}".encode(encode_format))
+                    elif acc=="n" or acc=="no":
+                        client.send(f"reg,{email},{password},{name}".encode(encode_format))
                 elif message[4:]=="quit":
                     print("Successfully disconnected")
                     connected=False
@@ -47,13 +61,25 @@ def receive():
                 elif message[4:17]=="show question":
                     question=message[18:]
                     print("Question: "+str(question))
-                elif message[4:]=="die":
-                    print("You lost!\nAdd coins:60")
+                elif message[4:7]=="die":
+                    amount=message[8:].split(",")
+                    print(f"You lost!\nAdd coins:{amount[0]}\nDeduce points:{amount[1]}")
                 elif message[4:7]=="win":
-                    amount=message[8:]
-                    print("You won!\nAdd coins:"+amount)
+                    amount=message[8:].split(",")
+                    print(f"You won!\nAdd coins:{amount[0]}\nAdd points:{amount[1]}")
             elif message[:3]=="err":
-                print(message[4:])
+                if message[4:]=="Wrong credentials":
+                    print("Wrong credentials!")
+                    connected=False
+                    client.close()
+                    return
+                elif message[4:]=="exsists":
+                    print("Account with this email already exsists!")
+                    connected=False
+                    client.close()
+                    return
+                else:
+                    print(message[4:])
             elif message != "":
                 print(message)
         except:
@@ -61,11 +87,9 @@ def receive():
             print("An error occured!")
             client.close()
             break
-
-
 def write(): # salje poruku serveru
     global connected
-    while True:
+    while connected:
         message=input()
         if connected:
             client.send(message.encode(encode_format))
