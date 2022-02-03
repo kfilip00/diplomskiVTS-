@@ -9,7 +9,6 @@ from werkzeug.security import generate_password_hash,check_password_hash
 
 
 #-------------------Classes
-
 class Room:
     def __init__(self,name):
         self.name=name
@@ -95,6 +94,21 @@ def joinRoom(name,conn,invited=False):
             return
 
     conn.send(f"inf Cloudnt find room with name \"{name}\"".encode(encode_format))
+def joinRandomRoom(conn):
+    counter=0
+    while True:
+        room = rooms[random.randrange(1, len(rooms))]
+        print(1)
+        if len(room.players)<maxPlayers and room.status=="open":
+            print(2)
+            joinRoom(room.name,conn)
+            break
+        counter+=1
+        print(3)
+        if counter==10:
+            print(4)
+            conn.send("inf No available room found,try again or create one".encode(encode_format))
+            break
 def createRoom(name,conn,closed=False):
     for room in rooms:
         if room.name==name:
@@ -143,6 +157,8 @@ def handleClient(conn): #tretira poruke od klijenta
                 elif command=="/jr": #udji u sobu
                     name=message[4:]
                     joinRoom(name,conn)
+                elif command=="/rr": #udji u nasumicnu sobu
+                    joinRandomRoom(conn)
                 elif command=="/jc": #udji u sobu
                     name=message[4:]
                     joinRoom(name,conn,True)
@@ -166,11 +182,10 @@ def newConnection():
     print(f"Server started on port {port}")
     while True:
         conn,address = server.accept() #ceka dok ne dodje do neke konekcije
-
-
+        print("New connection")
         conn.send("req acc".encode(encode_format)) #pita za account info
         acc=conn.recv(1024).decode(encode_format).split(",") #ocekuje reg/log,email,lozinka,?nick
-        if acc[0]=="log":
+        if acc[0]=="/log":
             #!login
             sql="SELECT * FROM players where email=%s"
             value=(acc[1],)
@@ -196,6 +211,7 @@ def newConnection():
 
                     thread = threading.Thread(target=handleClient,args=(client.conn,))
                     thread.start()
+                    print("Sucessfully connected")
                 else:
                     conn.send("err Wrong credentials".encode(encode_format))
                     conn.close()

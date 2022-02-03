@@ -31,9 +31,9 @@ def receive():
             if message[:3] =="req":
                 if message[4:]=="acc":
                     if acc=="y" or acc=="yes":
-                        client.send(f"log,{email},{password}".encode(encode_format))
+                        client.send(f"/log,{email},{password}".encode(encode_format))
                     elif acc=="n" or acc=="no":
-                        client.send(f"reg,{email},{password},{name}".encode(encode_format))
+                        client.send(f"/reg,{email},{password},{name}".encode(encode_format))
                 elif message[4:]=="quit":
                     print("Successfully disconnected")
                     connected=False
