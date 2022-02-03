@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jan 21, 2022 at 12:09 AM
+-- Generation Time: Feb 03, 2022 at 02:41 PM
 -- Server version: 10.4.22-MariaDB
 -- PHP Version: 8.0.13
 
@@ -28,7 +28,7 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `friendrequests` (
-  `id` int(11) NOT NULL,
+  `requestId` int(11) NOT NULL,
   `sender` int(11) NOT NULL,
   `receiver` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -51,7 +51,7 @@ CREATE TABLE `items` (
 --
 
 CREATE TABLE `players` (
-  `id` int(11) NOT NULL,
+  `playerId` int(11) NOT NULL,
   `name` varchar(20) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(102) NOT NULL,
@@ -62,6 +62,16 @@ CREATE TABLE `players` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
+-- Dumping data for table `players`
+--
+
+INSERT INTO `players` (`playerId`, `name`, `email`, `password`, `friends`, `coins`, `points`, `boughtItems`) VALUES
+(2, 'stefi', 'stefi@gmail.com', 'pbkdf2:sha256:260000$t2hJmvDfhJUBuWGS$549bfc11e8367e1816c77a3a2e636b2fcca8aa5278b7f70f0f5636808ae1a952', '-', 174, 6, '-'),
+(3, 'deki', 'deki@gmail.com', 'pbkdf2:sha256:260000$nDT0zA3LlP5SzNBG$2c177b8815ae29dd12612fd0b05b03e1df9481f1e7f971213ad91ba9176dfd0f', '-', 120, 0, '-'),
+(4, 'duki', 'duki@gmail.com', 'pbkdf2:sha256:260000$O4zeVLzq7mftwhrX$cd6adf43dafa8043ffb43653dfdb7f2d9318d303e5a6d2680c7d5aa8e5a1c032', '-', 97, 7, '-'),
+(7, 'fiki', 'fiki@gmail.com', 'pbkdf2:sha256:260000$RpBNz1Mobte1Ctcr$90f843acf8454a6980912c5b450e8ea449443e40fd9dde82d59c73550da8cb48', '-', 0, 0, '-');
+
+--
 -- Indexes for dumped tables
 --
 
@@ -69,7 +79,7 @@ CREATE TABLE `players` (
 -- Indexes for table `friendrequests`
 --
 ALTER TABLE `friendrequests`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`requestId`),
   ADD KEY `friendRequest_sender` (`sender`),
   ADD KEY `friendRequest_receiver` (`receiver`);
 
@@ -83,7 +93,8 @@ ALTER TABLE `items`
 -- Indexes for table `players`
 --
 ALTER TABLE `players`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`playerId`),
+  ADD UNIQUE KEY `email` (`email`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -93,7 +104,7 @@ ALTER TABLE `players`
 -- AUTO_INCREMENT for table `friendrequests`
 --
 ALTER TABLE `friendrequests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `requestId` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `items`
@@ -105,7 +116,7 @@ ALTER TABLE `items`
 -- AUTO_INCREMENT for table `players`
 --
 ALTER TABLE `players`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `playerId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Constraints for dumped tables
@@ -115,8 +126,8 @@ ALTER TABLE `players`
 -- Constraints for table `friendrequests`
 --
 ALTER TABLE `friendrequests`
-  ADD CONSTRAINT `friendRequest_receiver` FOREIGN KEY (`receiver`) REFERENCES `players` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `friendRequest_sender` FOREIGN KEY (`sender`) REFERENCES `players` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `friendRequest_receiver` FOREIGN KEY (`receiver`) REFERENCES `players` (`playerId`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `friendRequest_sender` FOREIGN KEY (`sender`) REFERENCES `players` (`playerId`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
