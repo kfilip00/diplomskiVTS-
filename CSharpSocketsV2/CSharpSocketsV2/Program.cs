@@ -10,6 +10,7 @@ namespace CSharpSocketsV2
     {
         public static TcpClient client;
         public static string acc;
+        public static bool connected = false;
         public string getAcc()
         {
             while (true)
@@ -45,6 +46,7 @@ namespace CSharpSocketsV2
             {
                 TcpClient _client = new TcpClient("127.0.0.1", 5000);
                 client = _client;
+                connected = true;
                 Thread handle_receive = new Thread(() => getMessage());
                 handle_receive.Start();
                 Thread handle_send = new Thread(() => sendMessage());
@@ -59,8 +61,7 @@ namespace CSharpSocketsV2
         }
         public static void sendMessage()
         {
-            
-            while (true)
+            while (connected)
             {
                 string message = Console.ReadLine();
                 sendMessage(message);
@@ -76,31 +77,108 @@ namespace CSharpSocketsV2
         {
             NetworkStream stream = client.GetStream();
             //StreamReader sr = new StreamReader(stream);
-            while (true)
+            while (connected)
             {
-                byte[] data = new byte[256];
-                string message = string.Empty;
-
-                int bytes = stream.Read(data, 0, data.Length);
-                message = Encoding.UTF8.GetString(data, 0, bytes);
-                if(!string.IsNullOrEmpty(message))
+                try
                 {
-                    string command = message[0]+""+message[1]+""+message[2];
-                    if (command=="req")
+                    byte[] data = new byte[256];
+                    string message = string.Empty;
+
+                    int bytes = stream.Read(data, 0, data.Length);
+                    message = Encoding.UTF8.GetString(data, 0, bytes);
+                    if (!string.IsNullOrEmpty(message))
                     {
-                        string action = string.Empty;
-                        for (int i = 4; i < message.Length; i++)
+                        string command = message[0] + "" + message[1] + "" + message[2];
+                        if (command == "req")
                         {
-                            action += message[i];
+                            string action = message[4] + "" + message[5] + "" + message[6];
+                            if (action == "acc")
+                            {
+                                sendMessage(acc);
+                            }
+                            else if (message == "quit")
+                            {
+                                Console.WriteLine("Successfuly disconnected");
+                                client.Close();
+                                connected = false;
+                                return;
+                            }
+                            else if (action == "loa") //load gameplay scene
+                            {
+                                Console.WriteLine("Load gameplay scene!");
+                                //ucitaj scenu
+                                sendMessage("/ca");
+                            }
+                            else if (action == "spa") //spawn players
+                            {
+                                string[] helper = message.Split(':');
+                                string[] playerNames = helper[1].Split(',');
+                                Console.WriteLine("Spawn players:" + helper[1]);
+                                sendMessage("/ca");
+                            }
+                            else if (action == "add") //add boxes
+                            {
+                                string[] helper = message.Split(':');
+                                string[] amonut = helper[1].Split(',');
+                                Console.WriteLine("Add boxes:" + helper[1]);
+                                sendMessage("/ca");
+                            }
+                            else if (action == "rem") //remove boxes
+                            {
+                                string[] helper = message.Split(':');
+                                string[] amonut = helper[1].Split(',');
+                                Console.WriteLine("Remove boxes:" + helper[1]);
+                                sendMessage("/ca");
+                            }
+                            else if (action == "sho") // show question
+                            {
+                                string[] helper = message.Split(':');
+                                //helper[1] contains question
+                                Console.WriteLine("Question: " + helper[1]);
+                            }
+                            else if (action == "die")
+                            {
+                                string[] helper = message.Split(':');
+                                string[] amonut = helper[1].Split(',');
+                                Console.WriteLine($"You lost!\nAdd coins:{amonut[0]}\nDeduce points:{amonut[1]}");
+                            }
+                            else if (action == "win")
+                            {
+                                string[] helper = message.Split(':');
+                                string[] amonut = helper[1].Split(',');
+                                Console.WriteLine($"You won!\nAdd coins:{amonut[0]}\nDeduce points:{amonut[1]}");
+                            }
+                            else
+                                Console.WriteLine("Undetected action for command request!");
                         }
-                        if (action=="acc")
+                        else if (command == "err")
                         {
-                            sendMessage(acc);
+                            string action = message[4] + "" + message[5] + "" + message[6];
+                            if (action == "cre") //wrong credentials
+                            {
+                                Console.WriteLine("Wrong credentials!");
+                                connected = false;
+                                client.Close();
+                                return;
+                            }
+                            else
+                                Console.WriteLine("Undetected action for command error!");
                         }
+                        else if (command == "inf")
+                            Console.WriteLine(message);
+                        else
+                            Console.WriteLine("Undetected command!");
                     }
-                    else
-                        Console.WriteLine(message);
+
                 }
+                catch
+                {
+                    Console.WriteLine("An error occured!");
+                    connected = false;
+                    client.Close();
+                    return;
+                }
+
 
             }
         }
@@ -110,6 +188,6 @@ namespace CSharpSocketsV2
             acc = p.getAcc();
             p.ExecuteClient();
         }
-       
+
     }
 }

@@ -39,8 +39,8 @@ def receive():
                     connected=False
                     client.close()
                     return
-                elif message[4:]=="Load gameplay scene":
-                    print("Load gameplay scene!")
+                elif message[4:]=="load gameplay scene":
+                    print("load gameplay scene!")
                     #UCITAJ SCENU
                     client.send("/ca".encode(encode_format))
                 elif message[4:18]=="spawn players:":
@@ -51,9 +51,6 @@ def receive():
                     amount=message[14:]
                     print("Add boxes:"+str(amount))
                     client.send("/ca".encode(encode_format))
-                elif message[4:17]=="add boxes":
-                    question=message[18:]
-                    print("Question:"+str(question))
                 elif message[4:16]=="remove boxes":
                     amount=message[17:]
                     print("Remove boxes:"+str(amount))
@@ -68,7 +65,7 @@ def receive():
                     amount=message[8:].split(",")
                     print(f"You won!\nAdd coins:{amount[0]}\nAdd points:{amount[1]}")
             elif message[:3]=="err":
-                if message[4:]=="Wrong credentials":
+                if message[4:]=="cre":
                     print("Wrong credentials!")
                     connected=False
                     client.close()

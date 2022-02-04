@@ -60,7 +60,7 @@ host = "" #ip adresa servera
 port = 5000 #port na kome slusa server
 encode_format="utf-8"
 maxPlayers=5 #maksimalni broj igraca po sobi
-minPlayers=0 #minimalni broj igraca po sobi
+minPlayers=2 #minimalni broj igraca po sobi
 
 rooms=[]
 clients=[]
@@ -98,15 +98,11 @@ def joinRandomRoom(conn):
     counter=0
     while True:
         room = rooms[random.randrange(1, len(rooms))]
-        print(1)
         if len(room.players)<maxPlayers and room.status=="open":
-            print(2)
             joinRoom(room.name,conn)
             break
         counter+=1
-        print(3)
         if counter==10:
-            print(4)
             conn.send("inf No available room found,try again or create one".encode(encode_format))
             break
 def createRoom(name,conn,closed=False):
@@ -173,6 +169,7 @@ def handleClient(conn): #tretira poruke od klijenta
                 elif command=="/an":
                     answer=message[4:]
                     setAnswer(conn,answer)
+
                 else:
                     conn.send("inf Wrong command!".encode(encode_format))
         except:
@@ -182,7 +179,6 @@ def newConnection():
     print(f"Server started on port {port}")
     while True:
         conn,address = server.accept() #ceka dok ne dodje do neke konekcije
-        print("New connection")
         conn.send("req acc".encode(encode_format)) #pita za account info
         acc=conn.recv(1024).decode(encode_format).split(",") #ocekuje reg/log,email,lozinka,?nick
         if acc[0]=="/log":
@@ -211,9 +207,8 @@ def newConnection():
 
                     thread = threading.Thread(target=handleClient,args=(client.conn,))
                     thread.start()
-                    print("Sucessfully connected")
                 else:
-                    conn.send("err Wrong credentials".encode(encode_format))
+                    conn.send("err cre".encode(encode_format))
                     conn.close()
             else:
                 conn.send("err Wrong credentials".encode(encode_format))
@@ -273,7 +268,7 @@ def handleGame(room):
         message="req add boxes:"
         for x in amount:
             message+=str(amount[count])+","
-            room.players[count].boxes+=int(amount[count])
+            room.players[count].boxes+=int(str(amount[count]).split('-')[0])
             count+=1
         message=message[:-1]
         broadCast(message)
@@ -296,18 +291,19 @@ def handleGame(room):
             player.action=-1
     def resetAnswers():
         for player in room.players:
-            player.answer="-1"
+            player.answer=""
     def checkAnswers(question):
         addBoxes=[]
         for player in room.players:
             foundAnswer=False
             for answer in question[2:]:
                 if player.answer==answer:
-                    addBoxes.append(len(answer))
+                    addBoxes.append(str(len(answer))+"-"+player.answer)
                     foundAnswer=True
                     break
             if foundAnswer==False:
-                addBoxes.append(0)
+                addBoxes.append("0-"+player.answer)
+
         return addBoxes
     def removeBoxes(_amount):
         amount=[]
@@ -336,10 +332,8 @@ def handleGame(room):
                 connection.execute(sql,value)
                 dataBase.commit()
 
-                player.conn.send(f"req die 60,{deducePoints}".encode(encode_format))
+                player.conn.send(f"req die:60,{deducePoints}".encode(encode_format))
                 joinRoom("global",player.conn)
-
-
     def rewardPlayers():
         for player in room.players:
             reward=player.boxes*3+100
@@ -353,11 +347,11 @@ def handleGame(room):
             connection.execute(sql,value)
             dataBase.commit()
 
-            player.conn.send(f"req win {reward},{points}".encode(encode_format))
+            player.conn.send(f"req win:{reward},{points}".encode(encode_format))
 
 
     #ucitaj gameplay scenu
-    broadCast("req Load gameplay scene")
+    broadCast("req load gameplay scene")
     waitForPlayers(10)
 
     #imena igraca
