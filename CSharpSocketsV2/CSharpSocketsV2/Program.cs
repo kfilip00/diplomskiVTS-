@@ -34,7 +34,7 @@ namespace CSharpSocketsV2
                     email = Console.ReadLine();
                     Console.Write("password: ");
                     password = Console.ReadLine();
-                    return $"/log,{email},{password},{nick}";
+                    return $"/reg,{email},{password},{nick}";
 
                 }
             }
@@ -149,7 +149,7 @@ namespace CSharpSocketsV2
                                 Console.WriteLine($"You won!\nAdd coins:{amonut[0]}\nDeduce points:{amonut[1]}");
                             }
                             else
-                                Console.WriteLine("Undetected action for command request!");
+                                Console.WriteLine("Undetected action for command request!\n"+message);
                         }
                         else if (command == "err")
                         {
@@ -162,12 +162,12 @@ namespace CSharpSocketsV2
                                 return;
                             }
                             else
-                                Console.WriteLine("Undetected action for command error!");
+                                Console.WriteLine("Undetected action for command error!\n"+message);
                         }
                         else if (command == "inf")
                             Console.WriteLine(message);
                         else
-                            Console.WriteLine("Undetected command!");
+                            Console.WriteLine("Undetected command!\n"+message);
                     }
 
                 }

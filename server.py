@@ -1,7 +1,7 @@
 import socket
 import threading
 import time
-
+import json
 import questionsAndAnswers
 import random
 import mysql.connector
@@ -27,7 +27,7 @@ class Room:
         self.players.remove(conn)
         self.status="open"
 class Client:
-    def __init__(self,conn,name,playerId,friends,coins,points,boughtItems):
+    def __init__(self,conn,name,playerId,friends,coins,points,boughtItems,selectedHero):
         self.conn=conn
         self.name=name
         self.playerId=playerId
@@ -38,6 +38,7 @@ class Client:
         self.room=""
         self.action=-1
         self.boxes=0
+        self.selectedHero
 
     def __str__(self):
         return f"""name={self.name},playerId={self.playerId},friends={self.friends},coins={self.coins},points={self.points},boughtItems={self.boughtItems},
@@ -90,7 +91,7 @@ def joinRoom(name,conn,invited=False):
                 leaveRoom(client)
             room.addPlayer(client)
             client.room=name
-            conn.send(f"inf Successfully joined room: \"{name}\"".encode(encode_format))
+            #conn.send(f"inf Successfully joined room: \"{name}\"".encode(encode_format))
             return
 
     conn.send(f"inf Cloudnt find room with name \"{name}\"".encode(encode_format))
@@ -176,43 +177,47 @@ def handleClient(conn): #tretira poruke od klijenta
 
             break
 def newConnection():
+    def login(conn,acc):
+        sql="SELECT * FROM players where email=%s"
+        value=(acc[1],)
+
+        connection.execute(sql,value)
+        account=connection.fetchone()
+
+        if account:
+            if(check_password_hash(account["password"],acc[2])):
+                #create client object
+                client=Client(conn=conn,
+                              name=account["name"],
+                              playerId=account["playerId"],
+                              friends=account["friends"],
+                              coins=account["coins"],
+                              points=account["points"],
+                              boughtItems=account["boughtItems"],
+                              selectedHero=account["selectedHero"])
+                clients.append(client)
+                account.pop("password")
+                client.conn.send(f"inf connected/{json.dumps(account)}".encode(encode_format))
+
+                #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
+
+                thread = threading.Thread(target=handleClient,args=(client.conn,))
+                thread.start()
+            else:
+                conn.send("err cre".encode(encode_format))
+                conn.close()
+        else:
+            conn.send("err cre".encode(encode_format))
+            conn.close()
+
+
     print(f"Server started on port {port}")
     while True:
         conn,address = server.accept() #ceka dok ne dodje do neke konekcije
         conn.send("req acc".encode(encode_format)) #pita za account info
         acc=conn.recv(1024).decode(encode_format).split(",") #ocekuje reg/log,email,lozinka,?nick
         if acc[0]=="/log":
-            #!login
-            sql="SELECT * FROM players where email=%s"
-            value=(acc[1],)
-
-            connection.execute(sql,value)
-            account=connection.fetchone()
-
-            if account:
-                if(check_password_hash(account["password"],acc[2])):
-                    #create client object
-                    client=Client(conn=conn,
-                                  name=account["name"],
-                                  playerId=account["playerId"],
-                                  friends=account["friends"],
-                                  coins=account["coins"],
-                                  points=account["points"],
-                                  boughtItems=account["boughtItems"])
-                    clients.append(client)
-
-                    client.conn.send("inf Connected to server!".encode(encode_format))
-
-                    #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
-
-                    thread = threading.Thread(target=handleClient,args=(client.conn,))
-                    thread.start()
-                else:
-                    conn.send("err cre".encode(encode_format))
-                    conn.close()
-            else:
-                conn.send("err Wrong credentials".encode(encode_format))
-                conn.close()
+            login(conn,acc)
         else:
             #proveri da li emajl vec postoji
             sql="SELECT email from players where email=%s"
@@ -231,22 +236,9 @@ def newConnection():
                 connection.execute(sql,value)
                 dataBase.commit()
 
-                id=connection.lastrowid
-                client=Client(conn=conn,
-                              name=acc[3],
-                              playerId=id,
-                              friends="-",
-                              coins=0,
-                              points=0,
-                              boughtItems="-")
-                clients.append(client)
+                login(conn,acc)
 
-                client.conn.send("inf Connected to server!".encode(encode_format))
 
-                #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
-
-                thread = threading.Thread(target=handleClient,args=(client.conn,))
-                thread.start()
 def getClient(conn):
     for client in clients:
         if client.getConn() == conn:
@@ -357,7 +349,7 @@ def handleGame(room):
     #imena igraca
     playersNames=""
     for player in room.players:
-        playersNames+=str(player.name)+","
+        playersNames+=f"{str(player.name)}-{player.selectedHero},"
         player.boxes=0
     playersNames=playersNames[:-1]
 
