@@ -16,7 +16,15 @@ class Room:
         self.status="open"
 
     def __str__(self):
-        return f"name={self.name},players={self.players},status={self.status}"
+        players="";
+        for player in self.players:
+            players+=player.name+","
+
+        if len(players)==0:
+            players="None"
+        else:
+            players=players[:-1]
+        return f"name={self.name}\nplayers={players}\nstatus={self.status}"
 
     def addPlayer(self,conn):
         self.players.append(conn)
@@ -38,7 +46,7 @@ class Client:
         self.room=""
         self.action=-1
         self.boxes=0
-        self.selectedHero
+        self.selectedHero=selectedHero
 
     def __str__(self):
         return f"""name={self.name},playerId={self.playerId},friends={self.friends},coins={self.coins},points={self.points},boughtItems={self.boughtItems},
@@ -91,7 +99,19 @@ def joinRoom(name,conn,invited=False):
                 leaveRoom(client)
             room.addPlayer(client)
             client.room=name
-            #conn.send(f"inf Successfully joined room: \"{name}\"".encode(encode_format))
+
+            if room.name!="global":
+                mess="req lpl:" #load players in lobby
+                for player in room.players:
+                    mess+=player.name+","
+                mess=mess[:-1]
+
+                for player in room.players:
+                    player.conn.send(str(mess).encode(encode_format))
+
+                if len(room.players)==maxPlayers:
+                    startGame(conn)
+
             return
 
     conn.send(f"inf Cloudnt find room with name \"{name}\"".encode(encode_format))
@@ -119,8 +139,8 @@ def createRoom(name,conn,closed=False):
         room.status="closed"
     else:
         room.status="open"
-    conn.send(f"inf Room with name: \"{name}\" created!".encode(encode_format))
     joinRoom(name,conn,True)
+
 def deleteRoom(room):
         rooms.remove(room)
 def getRoom(roomName):
@@ -132,6 +152,15 @@ def leaveRoom(client):
     roomName=client.room
     room=getRoom(roomName)
     room.players.remove(client)
+
+    mess="req lpl:" #load players in lobby
+    if room.name!="global":
+        for player in room.players:
+            mess+=player.name+","
+        mess=mess[:-1]
+
+        for player in room.players:
+            player.conn.send(str(mess).encode(encode_format))
 
     if len(room.players)==0:
         if roomName!="global":
@@ -409,7 +438,7 @@ def startGame(conn):
         return
     else:
         if len(room.players)>=minPlayers:
-            room.status="in progress"
+            room.status="inprogress"
             thread_handleGame=threading.Thread(target=handleGame,args=(room,))
             thread_handleGame.start()
         else:
@@ -430,7 +459,14 @@ def confirmAction(conn):
         client.conn.send("err Cant use this command now!".encode(encode_format))
 
 
-
+def handleServerCommands():
+    while True:
+        command=input()
+        if command=="rooms":
+            output="----------------\n"
+            for room in rooms:
+                output+=str(room)+"\n----------------\n"
+            print(output)
 #-------------------StartsServer
 
 server= socket.socket(socket.AF_INET,socket.SOCK_STREAM) #ozncava da cemo da radimo sa ipv4 adresama i da cemo koristiti TCP
@@ -444,4 +480,7 @@ rooms.append(globalRoom)
 
 thread_handleConnections=threading.Thread(target=newConnection) #slusa za nove konekcije
 thread_handleConnections.start()
+
+thread_handleServerCommands=threading.Thread(target=handleServerCommands) #izvrsava serverske komande
+thread_handleServerCommands.start()
 
