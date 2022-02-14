@@ -2,17 +2,17 @@ import socket
 import threading
 
 #login
-while True:
-    acc=input("Do you have account? (Y/N): ").lower()
-    if acc=="y" or acc=="yes":
-        email= input("email: ")
-        password=input("password: ")
-        break
-    elif acc=="n" or acc=="no":
-        name=input("Your nickname: ")
-        email= input("email: ")
-        password=input("password: ")
-        break
+#while True:
+    #acc=input("Do you have account? (Y/N): ").lower()
+    #if acc=="y" or acc=="yes":
+     #   email= input("email: ")
+      #  password=input("password: ")
+       # break
+    #elif acc=="n" or acc=="no":
+     #   name=input("Your nickname: ")
+      #  email= input("email: ")
+#  password=input("password: ")
+#       break
 
 host = "localhost" #ip adresa servera
 port = 5000 #port na kome slusa server
@@ -30,10 +30,10 @@ def receive():
             message=client.recv(1024).decode(encode_format)
             if message[:3] =="req":
                 if message[4:]=="acc":
-                    if acc=="y" or acc=="yes":
-                        client.send(f"/log,{email},{password}".encode(encode_format))
-                    elif acc=="n" or acc=="no":
-                        client.send(f"/reg,{email},{password},{name}".encode(encode_format))
+                    #if acc=="y" or acc=="yes":
+                    client.send(f"/log,duki@gmail.com,duki123".encode(encode_format))
+                    #elif acc=="n" or acc=="no":
+                        #client.send(f"/reg,{email},{password},{name}".encode(encode_format))
                 elif message[4:]=="quit":
                     print("Successfully disconnected")
                     connected=False

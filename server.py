@@ -47,6 +47,7 @@ class Client:
         self.action=-1
         self.boxes=0
         self.selectedHero=selectedHero
+        self.died=False
 
     def __str__(self):
         return f"""name={self.name},playerId={self.playerId},friends={self.friends},coins={self.coins},points={self.points},boughtItems={self.boughtItems},
@@ -118,6 +119,9 @@ def joinRoom(name,conn,invited=False):
 def joinRandomRoom(conn):
     counter=0
     while True:
+        if len(rooms)==1:
+            conn.send("inf No available room found,try again or create one".encode(encode_format))
+            break
         room = rooms[random.randrange(1, len(rooms))]
         if len(room.players)<maxPlayers and room.status=="open":
             joinRoom(room.name,conn)
@@ -151,16 +155,34 @@ def getRoom(roomName):
 def leaveRoom(client):
     roomName=client.room
     room=getRoom(roomName)
+    clientIndex=room.players.index(client)
     room.players.remove(client)
 
-    mess="req lpl:" #load players in lobby
-    if room.name!="global":
-        for player in room.players:
-            mess+=player.name+","
-        mess=mess[:-1]
-
+    if room.status=="inprogress" and client.died==False:
+        mess=f"req rpg:{clientIndex}" #remove player in game
         for player in room.players:
             player.conn.send(str(mess).encode(encode_format))
+
+        deducePoints=0
+        if client.points>10:
+            deducePoints=random.randrange(6,10)
+            client.points-=deducePoints
+        sql=f"UPDATE players SET points=points-{deducePoints} WHERE playerId = %s;"
+        value=(player.playerId,)
+        connection.execute(sql,value)
+        dataBase.commit()
+        client.conn.send(f"req die:0,-{deducePoints}".encode(encode_format))
+
+
+    elif room.status!="inprogress":
+        mess="req lpl:" #load players in lobby
+        if room.name!="global" and room.status!="closing":
+            for player in room.players:
+                mess+=player.name+","
+            mess=mess[:-1]
+
+            for player in room.players:
+                player.conn.send(str(mess).encode(encode_format))
 
     if len(room.players)==0:
         if roomName!="global":
@@ -293,7 +315,7 @@ def handleGame(room):
             count+=1
         message=message[:-1]
         broadCast(message)
-    def waitForPlayers(waitTime=0):
+    def waitForPlayers(waitTime):
         #ceka da igrac izvrsi
         wait=True
         counter=0
@@ -302,14 +324,14 @@ def handleGame(room):
             for player in room.players:
                 if player.action!=1:
                     wait=True
-                    break
-            if counter>waitTime:
-                return
             time.sleep(1)
             counter+=1
+            if counter>waitTime:
+                break
 
         for player in room.players:
             player.action=-1
+
     def resetAnswers():
         for player in room.players:
             player.answer=""
@@ -319,11 +341,11 @@ def handleGame(room):
             foundAnswer=False
             for answer in question[2:]:
                 if player.answer==answer:
-                    addBoxes.append(str(len(answer))+"-"+player.answer)
+                    addBoxes.append(str(len(answer))+"- "+player.answer)
                     foundAnswer=True
                     break
             if foundAnswer==False:
-                addBoxes.append("0-"+player.answer)
+                addBoxes.append("0- "+player.answer)
 
         return addBoxes
     def removeBoxes(_amount):
@@ -342,7 +364,7 @@ def handleGame(room):
     def checkIfSomeoneDied():
         for player in room.players:
             if player.boxes<0:
-
+                player.died=True
                 deducePoints=0
                 if player.points>10:
                     deducePoints=random.randrange(6,10)
@@ -353,7 +375,7 @@ def handleGame(room):
                 connection.execute(sql,value)
                 dataBase.commit()
 
-                player.conn.send(f"req die:60,{deducePoints}".encode(encode_format))
+                player.conn.send(f"req die:60,-{deducePoints}".encode(encode_format))
                 joinRoom("global",player.conn)
     def rewardPlayers():
         for player in room.players:
@@ -375,11 +397,12 @@ def handleGame(room):
     broadCast("req load gameplay scene")
     waitForPlayers(10)
 
-    #imena igraca
+    #uzmi imena igraca i postavi im da nisu umrli
     playersNames=""
     for player in room.players:
         playersNames+=f"{str(player.name)}-{player.selectedHero},"
         player.boxes=0
+        player.died=False
     playersNames=playersNames[:-1]
 
     #spawnuj igrace sa imenima
@@ -389,7 +412,7 @@ def handleGame(room):
     #daj svim igracima po 3 kutije
     startingBoxes=[]
     for player in room.players:
-        startingBoxes.append(3)
+        startingBoxes.append(f"3-{player.name}")
     addBoxes(startingBoxes) #dodaje pocetne kutije
     waitForPlayers(5)
 
@@ -412,7 +435,7 @@ def handleGame(room):
 
         removeBoxes(round+2)
 
-        waitForPlayers(5)
+        waitForPlayers(10)
 
         checkIfSomeoneDied()
 
@@ -425,6 +448,8 @@ def handleGame(room):
             break
 
     rewardPlayers()
+
+    room.status="closing"
 
     #close game
     for player in room.players:
@@ -446,7 +471,7 @@ def startGame(conn):
 def setAnswer(conn,answer):
     client=getClient(conn)
     if client.room!="global:":
-        client.answer=answer+"".lower()
+        client.answer=str(answer).lower()
         confirmAction(conn)
     else:
         client.conn.send("err Cant use this command now!".encode(encode_format))
@@ -454,7 +479,6 @@ def confirmAction(conn):
     client=getClient(conn)
     if client.room!="global":
         client.action=1
-
     else:
         client.conn.send("err Cant use this command now!".encode(encode_format))
 
