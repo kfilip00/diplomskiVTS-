@@ -221,8 +221,19 @@ def handleClient(conn): #tretira poruke od klijenta
                 elif command=="/an":
                     answer=message[4:]
                     setAnswer(conn,answer)
-
-                else:
+                elif command=="/si": # trazi prijatelje po idu
+                    id=message[4:]
+                    conn.send(f"req lfs:{searchFriends(search=id,searchBy='playerId')}".encode(encode_format))
+                elif command=="/sn": #trazi prijatelje po imenu
+                    name=message[4:]
+                    conn.send(f"req lfs:{searchFriends(search=name,searchBy='name')}".encode(encode_format))
+                elif command=="/af": #dodaj drugara
+                    id=message[4:]
+                    addFriend(id)
+                elif command=="/gf": #pokupi prijatelje
+                    result=getFriends(getClient(conn))
+                    conn.send(f"req lfm:{result}".encode(encode_format))
+            else:
                     conn.send("inf Wrong command!".encode(encode_format))
         except:
 
@@ -236,8 +247,16 @@ def newConnection():
         account=connection.fetchone()
 
         if account:
+
             if(check_password_hash(account["password"],acc[2])):
                 #create client object
+                if account["friends"] != "-" :
+                    friendsIds=str(account["friends"]).split(',')
+                    friends=""
+                    for id in friendsIds:
+                        friends+=searchFriends(searchBy="playerId",search=id)+","
+                    friends=friends[:-1]
+                    account["friends"]=friends
                 client=Client(conn=conn,
                               name=account["name"],
                               playerId=account["playerId"],
@@ -425,7 +444,7 @@ def handleGame(room):
         question=random.choice(questions)
         broadCast("req show question:"+question[1])
 
-        waitForPlayers(10)#ceka dok igraci odgovore na pitanje
+        waitForPlayers(13)#ceka dok igraci odgovore na pitanje
 
         boxes=checkAnswers(question)
 
@@ -435,7 +454,7 @@ def handleGame(room):
 
         removeBoxes(round+2)
 
-        waitForPlayers(10)
+        waitForPlayers(5)
 
         checkIfSomeoneDied()
 
@@ -482,6 +501,114 @@ def confirmAction(conn):
     else:
         client.conn.send("err Cant use this command now!".encode(encode_format))
 
+
+#friends
+def searchFriends(search,searchBy):
+    upit=f"SELECT playerId,name,points FROM players where {searchBy}=%s"
+    values=(search,)
+    connection.execute(upit,values)
+    friends=connection.fetchall()
+
+    #form string
+    if friends:
+        message="" #load friends search
+        for friend in friends:
+            message+=f"{friend.get('playerId')}-{friend.get('name')}-{friend.get('points')},"
+        message=message[:-1]
+        return str(message)
+    else:
+        message="None"
+        return str(message)
+def addFriend(_ids):
+    def checkIfRequestExsists(): #proverava da li vec postoji zahtev za prijateljstvo
+        ids=str(_ids).split(',')
+        sql="SELECT requestId FROM friendrequests where sender=%s and receiver=%s"
+        values=(ids[0],ids[1])
+
+        connection.execute(sql,values)
+        request=connection.fetchone()
+
+        if request:
+            return True
+        else:
+            return False
+    def checkToBecameFriends(): #proverava da li vec postoji zahtev za prijateljstvo
+        ids=str(_ids).split(',')
+        sql="SELECT requestId FROM friendrequests where sender=%s and receiver=%s"
+        values=(ids[1],ids[0])
+
+        connection.execute(sql,values)
+        request=connection.fetchone()
+
+        if request:
+            return True
+        else:
+            return False
+
+    if checkIfRequestExsists()==False:
+        if checkToBecameFriends()==False:
+            #dodaj zahtev za prijateljstvo
+            ids=str(_ids).split(',')
+            sql="INSERT INTO `friendrequests`(`sender`, `receiver`) VALUES (%s,%s)"
+            values=(ids[0],ids[1])
+
+            connection.execute(sql,values)
+            dataBase.commit()
+
+        else:
+            #become friends
+
+            #delete request
+            ids=str(_ids).split(',')
+            sql="DELETE FROM `friendrequests` WHERE sender=%s and receiver=%s"
+            values=(ids[1],ids[0])
+
+            connection.execute(sql,values)
+            dataBase.commit()
+
+            #dodaj prijatelja
+            sql="UPDATE `players` SET `friends`=friends+%s WHERE playerId=%s"
+            value=(ids[0],ids[1])
+
+            connection.execute(sql,value)
+            dataBase.commit()
+
+            #dodaj prijatelja
+            sql="UPDATE `players` SET `friends`=friends+%s WHERE playerId=%s"
+            value=(ids[1],ids[0])
+
+            connection.execute(sql,value)
+            dataBase.commit()
+def getFriends(client):
+
+    #get ids of friends
+    upit=f"SELECT friends FROM players where playerId=%s"
+    values=(client.playerId,)
+    connection.execute(upit,values)
+    friends=connection.fetchone() #friends=id,id,
+
+    #get data of frinds
+    ids=friends["friends"].split(',')
+    upit="SELECT playerId,name,points FROM players where "
+    for id in ids:
+
+        upit+=f"playerId={id} or "
+
+    upit=upit[:-3]
+
+    connection.execute(upit)
+    friends=connection.fetchall() #friends=id,id,id
+
+    #form string
+    if friends:
+        message="" #load friends search
+        for friend in friends:
+            message+=f"{friend.get('playerId')}-{friend.get('name')}-{friend.get('points')},"
+        message=message[:-1]
+        return str(message)
+    else:
+        message="None"
+        return str(message)
 
 def handleServerCommands():
     while True:
