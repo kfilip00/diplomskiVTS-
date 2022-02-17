@@ -16,7 +16,7 @@ class Room:
         self.status="open"
 
     def __str__(self):
-        players="";
+        players=""
         for player in self.players:
             players+=player.name+","
 
@@ -84,17 +84,17 @@ def joinRoom(name,conn,invited=False):
     for room in rooms:
         if room.name==name:
             if room.status=="full":
-                conn.send(f"inf Room \"{room.name}\" is full!".encode(encode_format))
+                clientSendMessage(conn,f"inf Room \"{room.name}\" is full!")
                 return
             if room.status=="closed" and invited==False:
-                conn.send(f"inf Room \"{room.name}\" is closed!".encode(encode_format))
+                clientSendMessage(conn,f"inf Room \"{room.name}\" is closed!")
                 return
             if room.status=="inprogress":
-                conn.send(f"inf Room \"{room.name}\" is in progress!".encode(encode_format))
+                clientSendMessage(conn,f"inf Room \"{room.name}\" is in progress!")
                 return
             client=getClient(conn)
             if client.room==name:
-                conn.send(f"inf Already in room \"{name}\"".encode(encode_format))
+                clientSendMessage(conn,f"inf Already in room \"{name}\"")
                 return
             if client.room!="":
                 leaveRoom(client)
@@ -108,19 +108,19 @@ def joinRoom(name,conn,invited=False):
                 mess=mess[:-1]
 
                 for player in room.players:
-                    player.conn.send(str(mess).encode(encode_format))
+                    clientSendMessage(player.conn,str(mess))
 
                 if len(room.players)==maxPlayers:
                     startGame(conn)
 
             return
 
-    conn.send(f"inf Cloudnt find room with name \"{name}\"".encode(encode_format))
+    clientSendMessage(conn,f"inf Cloudnt find room with name \"{name}\"")
 def joinRandomRoom(conn):
     counter=0
     while True:
         if len(rooms)==1:
-            conn.send("inf No available room found,try again or create one".encode(encode_format))
+            clientSendMessage(conn,"inf No available room found,try again or create one")
             break
         room = rooms[random.randrange(1, len(rooms))]
         if len(room.players)<maxPlayers and room.status=="open":
@@ -128,12 +128,12 @@ def joinRandomRoom(conn):
             break
         counter+=1
         if counter==10:
-            conn.send("inf No available room found,try again or create one".encode(encode_format))
+            clientSendMessage(conn,"inf No available room found,try again or create one")
             break
 def createRoom(name,conn,closed=False):
     for room in rooms:
         if room.name==name:
-            conn.send("inf Room with this name already exsists!".encode(encode_format))
+            clientSendMessage(conn,"inf Room with this name already exsists!")
             return
 
     room= Room(name)
@@ -144,7 +144,6 @@ def createRoom(name,conn,closed=False):
     else:
         room.status="open"
     joinRoom(name,conn,True)
-
 def deleteRoom(room):
         rooms.remove(room)
 def getRoom(roomName):
@@ -161,17 +160,17 @@ def leaveRoom(client):
     if room.status=="inprogress" and client.died==False:
         mess=f"req rpg:{clientIndex}" #remove player in game
         for player in room.players:
-            player.conn.send(str(mess).encode(encode_format))
+            clientSendMessage(player.conn,str(mess))
 
         deducePoints=0
         if client.points>10:
             deducePoints=random.randrange(6,10)
             client.points-=deducePoints
         sql=f"UPDATE players SET points=points-{deducePoints} WHERE playerId = %s;"
-        value=(player.playerId,)
+        value=(client.playerId,)
         connection.execute(sql,value)
         dataBase.commit()
-        client.conn.send(f"req die:0,-{deducePoints}".encode(encode_format))
+        clientSendMessage(client.conn,f"req die:0,-{deducePoints}")
 
 
     elif room.status!="inprogress":
@@ -182,7 +181,7 @@ def leaveRoom(client):
             mess=mess[:-1]
 
             for player in room.players:
-                player.conn.send(str(mess).encode(encode_format))
+                clientSendMessage(player.conn,str(mess))
 
     if len(room.players)==0:
         if roomName!="global":
@@ -213,7 +212,7 @@ def handleClient(conn): #tretira poruke od klijenta
                 elif command=="/lv": #izadji iz sobe
                     joinRoom(name="global",conn=conn)
                 elif command=="/qu": #izadji iz igrice (kopletno)
-                    quitClient(conn)
+                    kickClient(conn)
                 elif command=="/st": #pocni igru
                     startGame(conn)
                 elif command=="/ca": #potvrdi izvresenu komandu
@@ -223,18 +222,21 @@ def handleClient(conn): #tretira poruke od klijenta
                     setAnswer(conn,answer)
                 elif command=="/si": # trazi prijatelje po idu
                     id=message[4:]
-                    conn.send(f"req lfs:{searchFriends(search=id,searchBy='playerId')}".encode(encode_format))
+                    clientSendMessage(conn,f"req lfs:{searchFriends(search=id,searchBy='playerId')}")
                 elif command=="/sn": #trazi prijatelje po imenu
                     name=message[4:]
-                    conn.send(f"req lfs:{searchFriends(search=name,searchBy='name')}".encode(encode_format))
+                    clientSendMessage(conn,f"req lfs:{searchFriends(search=name,searchBy='name')}")
                 elif command=="/af": #dodaj drugara
                     id=message[4:]
-                    addFriend(id)
+                    addFriend(id,conn)
                 elif command=="/gf": #pokupi prijatelje
                     result=getFriends(getClient(conn))
-                    conn.send(f"req lfm:{result}".encode(encode_format))
+                    clientSendMessage(conn,f"req lfm:{result}")
+                elif command=="/iv":
+                    id=int(message[4:])
+                    inviteClient(client=getClient(conn),id=id)
             else:
-                    conn.send("inf Wrong command!".encode(encode_format))
+                    clientSendMessage(conn,"inf Wrong command!")
         except:
 
             break
@@ -250,13 +252,6 @@ def newConnection():
 
             if(check_password_hash(account["password"],acc[2])):
                 #create client object
-                if account["friends"] != "-" :
-                    friendsIds=str(account["friends"]).split(',')
-                    friends=""
-                    for id in friendsIds:
-                        friends+=searchFriends(searchBy="playerId",search=id)+","
-                    friends=friends[:-1]
-                    account["friends"]=friends
                 client=Client(conn=conn,
                               name=account["name"],
                               playerId=account["playerId"],
@@ -266,25 +261,26 @@ def newConnection():
                               boughtItems=account["boughtItems"],
                               selectedHero=account["selectedHero"])
                 clients.append(client)
+                account["friends"]=client.friends=getFriends(getClient(conn))
                 account.pop("password")
-                client.conn.send(f"inf connected/{json.dumps(account)}".encode(encode_format))
+                clientSendMessage(client.conn,f"inf connected/{json.dumps(account)}")
 
                 #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
 
                 thread = threading.Thread(target=handleClient,args=(client.conn,))
                 thread.start()
             else:
-                conn.send("err cre".encode(encode_format))
+                clientSendMessage(conn.send,"err cre")
                 conn.close()
         else:
-            conn.send("err cre".encode(encode_format))
+            clientSendMessage(conn.send,"err cre")
             conn.close()
 
 
     print(f"Server started on port {port}")
     while True:
         conn,address = server.accept() #ceka dok ne dodje do neke konekcije
-        conn.send("req acc".encode(encode_format)) #pita za account info
+        clientSendMessage(conn,"req acc")
         acc=conn.recv(1024).decode(encode_format).split(",") #ocekuje reg/log,email,lozinka,?nick
         if acc[0]=="/log":
             login(conn,acc)
@@ -297,7 +293,7 @@ def newConnection():
             exsists=connection.fetchall()
 
             if exsists:
-                conn.send("err exsists".encode(encode_format))
+                clientSendMessage(conn,"err exsists")
                 conn.close()
             else:
                 sql="INSERT INTO `players`(  `email`, `password`,`name`) VALUES (%s,%s,%s)"
@@ -307,24 +303,51 @@ def newConnection():
                 dataBase.commit()
 
                 login(conn,acc)
-
-
+def clientSendMessage(conn,message):
+    try:
+        conn.send(str(message).encode(encode_format))
+        return True
+    except:
+        kickClient(conn)
+        return False
 def getClient(conn):
     for client in clients:
         if client.getConn() == conn:
             return client
+def kickClient(conn):
+    client=getClient(conn)
+    leaveRoom(client)
+    clients.remove(client)
 def quitClient(conn):
     client=getClient(conn)
     clients.remove(client)
-    conn.send("req quit".encode(encode_format))
+    clientSendMessage(conn,"req quit")
     conn.close()
+def inviteClient(client,id): #client->sender,id->invited
+    if client.room!="global":
+        #get invited's client id
+        clientInvited=None
+        for _client in clients:
+            if _client.playerId==id:
+                clientInvited=_client
 
+        if clientInvited:
+            if clientInvited.room=="global":
+                clientSendMessage(clientInvited.conn,f"req inv:{client.name},{client.room}")
+            else:
+                clientSendMessage(client.conn,f"inf iva:{clientInvited.name} is already in a room!")
+        else:
+            #clientInvited closed game,tell client to update friends list
+            result=getFriends(getClient(client.conn))
+            clientSendMessage(client.conn,f"req lfm:{result}")
+    else:
+        clientSendMessage(client.conn,"inf cig") #cant invite from global room
 
 #game
 def handleGame(room):
     def broadCast(mess):
         for player in room.players:
-            player.conn.send(str(mess).encode(encode_format))
+            clientSendMessage(player.conn,str(mess))
     def addBoxes(amount):
         count=0
         message="req add boxes:"
@@ -394,7 +417,7 @@ def handleGame(room):
                 connection.execute(sql,value)
                 dataBase.commit()
 
-                player.conn.send(f"req die:60,-{deducePoints}".encode(encode_format))
+                clientSendMessage(player.conn,f"req die:60,-{deducePoints}")
                 joinRoom("global",player.conn)
     def rewardPlayers():
         for player in room.players:
@@ -409,7 +432,7 @@ def handleGame(room):
             connection.execute(sql,value)
             dataBase.commit()
 
-            player.conn.send(f"req win:{reward},{points}".encode(encode_format))
+            clientSendMessage(player.conn,f"req win:{reward},{points}")
 
 
     #ucitaj gameplay scenu
@@ -478,7 +501,7 @@ def startGame(conn):
     client=getClient(conn)
     room=getRoom(client.room)
     if room.name=="global": #ne radi
-        conn.send(f"err Cant start game from \"{room.name}\" room!".encode(encode_format))
+        clientSendMessage(conn,f"err Cant start game from \"{room.name}\" room!")
         return
     else:
         if len(room.players)>=minPlayers:
@@ -486,20 +509,20 @@ def startGame(conn):
             thread_handleGame=threading.Thread(target=handleGame,args=(room,))
             thread_handleGame.start()
         else:
-            client.conn.send(f"inf Cant start game,need minimum of {minPlayers}. players!".encode(encode_format))
+            clientSendMessage(client.conn,f"inf Cant start game,need minimum of {minPlayers}. players!")
 def setAnswer(conn,answer):
     client=getClient(conn)
     if client.room!="global:":
         client.answer=str(answer).lower()
         confirmAction(conn)
     else:
-        client.conn.send("err Cant use this command now!".encode(encode_format))
+        clientSendMessage(client.conn,"err Cant use this command now!")
 def confirmAction(conn):
     client=getClient(conn)
     if client.room!="global":
         client.action=1
     else:
-        client.conn.send("err Cant use this command now!".encode(encode_format))
+        clientSendMessage(client.conn,"err Cant use this command now!")
 
 
 #friends
@@ -519,7 +542,7 @@ def searchFriends(search,searchBy):
     else:
         message="None"
         return str(message)
-def addFriend(_ids):
+def addFriend(_ids,conn):
     def checkIfRequestExsists(): #proverava da li vec postoji zahtev za prijateljstvo
         ids=str(_ids).split(',')
         sql="SELECT requestId FROM friendrequests where sender=%s and receiver=%s"
@@ -567,18 +590,22 @@ def addFriend(_ids):
             dataBase.commit()
 
             #dodaj prijatelja
-            sql="UPDATE `players` SET `friends`=friends+%s WHERE playerId=%s"
+            sql="UPDATE players SET friends = CONCAT(friends, ','),friends = CONCAT(friends, %s) WHERE playerId=%s"
             value=(ids[0],ids[1])
 
             connection.execute(sql,value)
             dataBase.commit()
 
             #dodaj prijatelja
-            sql="UPDATE `players` SET `friends`=friends+%s WHERE playerId=%s"
+            sql="UPDATE players SET friends = CONCAT(friends, ','),friends = CONCAT(friends, %s) WHERE playerId=%s"
             value=(ids[1],ids[0])
 
             connection.execute(sql,value)
             dataBase.commit()
+
+            #updejtuj prijatelje na klijentu
+            result=getFriends(getClient(conn))
+            clientSendMessage(conn,f"req lfm:{result}")
 def getFriends(client):
 
     #get ids of friends
@@ -587,28 +614,38 @@ def getFriends(client):
     connection.execute(upit,values)
     friends=connection.fetchone() #friends=id,id,
 
-    #get data of frinds
-    ids=friends["friends"].split(',')
-    upit="SELECT playerId,name,points FROM players where "
-    for id in ids:
+    if friends["friends"]!= "0":
+        #get data of frinds
+        ids=friends["friends"].split(',')
+        upit="SELECT playerId,name,points FROM players where "
+        for id in ids:
+            if str(id)!="0":
+                upit+=f"playerId={id} or "
+        upit=upit[:-3]
+        connection.execute(upit)
+        friends=connection.fetchall() #friends=id,id,id
 
-        upit+=f"playerId={id} or "
-
-    upit=upit[:-3]
-
-    connection.execute(upit)
-    friends=connection.fetchall() #friends=id,id,id
-
-    #form string
-    if friends:
-        message="" #load friends search
-        for friend in friends:
-            message+=f"{friend.get('playerId')}-{friend.get('name')}-{friend.get('points')},"
-        message=message[:-1]
-        return str(message)
+        #form string
+        if friends:
+            message="" #load friends search
+            for friend in friends:
+                online=checkIfFriendIsOnline(friend.get('playerId'))
+                message+=f"{friend.get('playerId')}-{friend.get('name')}-{friend.get('points')}-{online},"
+            message=message[:-1]
+            return str(message)
+        else:
+            message="None"
+            return str(message)
     else:
         message="None"
         return str(message)
+def checkIfFriendIsOnline(friendId):
+    for client in clients:
+        if friendId==client.playerId:
+            return True
+    return False
+
+
 
 def handleServerCommands():
     while True:

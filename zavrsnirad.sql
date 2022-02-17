@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 15, 2022 at 07:50 PM
+-- Generation Time: Feb 17, 2022 at 02:42 PM
 -- Server version: 10.4.22-MariaDB
 -- PHP Version: 8.0.13
 
@@ -33,13 +33,6 @@ CREATE TABLE `friendrequests` (
   `receiver` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
---
--- Dumping data for table `friendrequests`
---
-
-INSERT INTO `friendrequests` (`requestId`, `sender`, `receiver`) VALUES
-(2, 4, 3);
-
 -- --------------------------------------------------------
 
 --
@@ -62,7 +55,7 @@ CREATE TABLE `players` (
   `name` varchar(20) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(102) NOT NULL,
-  `friends` varchar(255) NOT NULL DEFAULT '' COMMENT 'id,id,id',
+  `friends` varchar(255) NOT NULL DEFAULT '0' COMMENT 'id,id,id',
   `coins` int(10) NOT NULL DEFAULT 0,
   `points` int(10) NOT NULL DEFAULT 0,
   `boughtItems` varchar(200) NOT NULL DEFAULT '-' COMMENT 'id,id,id',
@@ -74,11 +67,11 @@ CREATE TABLE `players` (
 --
 
 INSERT INTO `players` (`playerId`, `name`, `email`, `password`, `friends`, `coins`, `points`, `boughtItems`, `selectedHero`) VALUES
-(2, 'stefi', 'stefi@gmail.com', 'pbkdf2:sha256:260000$t2hJmvDfhJUBuWGS$549bfc11e8367e1816c77a3a2e636b2fcca8aa5278b7f70f0f5636808ae1a952', '11', 6633, 240, '-', 0),
-(3, 'deki', 'deki@gmail.com', 'pbkdf2:sha256:260000$nDT0zA3LlP5SzNBG$2c177b8815ae29dd12612fd0b05b03e1df9481f1e7f971213ad91ba9176dfd0f', '', 120, 0, '-', 0),
-(4, 'duki', 'duki@gmail.com', 'pbkdf2:sha256:260000$O4zeVLzq7mftwhrX$cd6adf43dafa8043ffb43653dfdb7f2d9318d303e5a6d2680c7d5aa8e5a1c032', '2,3,7', 3727, 3, '-', 0),
-(7, 'fiki', 'fiki@gmail.com', 'pbkdf2:sha256:260000$RpBNz1Mobte1Ctcr$90f843acf8454a6980912c5b450e8ea449443e40fd9dde82d59c73550da8cb48', '2', 257, 12, '-', 0),
-(8, 'miki', 'miki@gmail.com', 'pbkdf2:sha256:260000$JulNshJBTmUZ66NQ$e5d2f46c8201b3fdcca42a22afeb74ed5dbd8f29f0f5c0386a302c9640d3b4f2', '', 0, 0, '-', 0);
+(2, 'stefi', 'stefi@gmail.com', 'pbkdf2:sha256:260000$t2hJmvDfhJUBuWGS$549bfc11e8367e1816c77a3a2e636b2fcca8aa5278b7f70f0f5636808ae1a952', '0,3,4', 6633, 227, '-', 0),
+(3, 'deki', 'deki@gmail.com', 'pbkdf2:sha256:260000$nDT0zA3LlP5SzNBG$2c177b8815ae29dd12612fd0b05b03e1df9481f1e7f971213ad91ba9176dfd0f', '0,2,7', 120, 0, '-', 0),
+(4, 'duki', 'duki@gmail.com', 'pbkdf2:sha256:260000$O4zeVLzq7mftwhrX$cd6adf43dafa8043ffb43653dfdb7f2d9318d303e5a6d2680c7d5aa8e5a1c032', '0,2', 3927, 14, '-', 0),
+(7, 'fiki', 'fiki@gmail.com', 'pbkdf2:sha256:260000$RpBNz1Mobte1Ctcr$90f843acf8454a6980912c5b450e8ea449443e40fd9dde82d59c73550da8cb48', '0,3', 257, 12, '-', 0),
+(8, 'miki', 'miki@gmail.com', 'pbkdf2:sha256:260000$JulNshJBTmUZ66NQ$e5d2f46c8201b3fdcca42a22afeb74ed5dbd8f29f0f5c0386a302c9640d3b4f2', '0', 0, 0, '-', 0);
 
 --
 -- Indexes for dumped tables
@@ -113,7 +106,7 @@ ALTER TABLE `players`
 -- AUTO_INCREMENT for table `friendrequests`
 --
 ALTER TABLE `friendrequests`
-  MODIFY `requestId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `requestId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `items`
