@@ -1,11 +1,12 @@
 import socket
 import threading
-import time
 import json
 import questionsAndAnswers
 import random
 import mysql.connector
 from werkzeug.security import generate_password_hash,check_password_hash
+import time
+from datetime import datetime
 
 
 #-------------------Classes
@@ -35,7 +36,7 @@ class Room:
         self.players.remove(conn)
         self.status="open"
 class Client:
-    def __init__(self,conn,name,playerId,friends,coins,points,boughtItems,selectedHero):
+    def __init__(self,conn,name,playerId,friends,coins,points,boughtItems,selectedHero,gamesPlayed,gamesWon):
         self.conn=conn
         self.name=name
         self.playerId=playerId
@@ -48,6 +49,8 @@ class Client:
         self.boxes=0
         self.selectedHero=selectedHero
         self.died=False
+        self.gamesPlayed=gamesPlayed
+        self.gamesWon=gamesWon
 
     def __str__(self):
         return f"""name={self.name},playerId={self.playerId},friends={self.friends},coins={self.coins},points={self.points},boughtItems={self.boughtItems},
@@ -74,6 +77,8 @@ minPlayers=2 #minimalni broj igraca po sobi
 
 rooms=[]
 clients=[]
+leaderboardPoints=[]
+leaderboardWinrate=[]
 questions=questionsAndAnswers.questions
 
 #-------------------Functions
@@ -211,7 +216,7 @@ def handleClient(conn): #tretira poruke od klijenta
                     joinRoom(name,conn,True)
                 elif command=="/lv": #izadji iz sobe
                     joinRoom(name="global",conn=conn)
-                elif command=="/qu": #izadji iz igrice (kopletno)
+                elif command=="/qu": #izadji iz igrice (kopletno)jjikj,ikjjju, , j,,kj,kj uj jju
                     kickClient(conn)
                 elif command=="/st": #pocni igru
                     startGame(conn)
@@ -235,6 +240,10 @@ def handleClient(conn): #tretira poruke od klijenta
                 elif command=="/iv":
                     id=int(message[4:])
                     inviteClient(client=getClient(conn),id=id)
+                elif command=="/gp": #trazi leaderboard za pointse
+                    clientSendMessage(conn,f"req ulp:{getLeaderBoardPoints()}")
+                elif command=="/gw": #trazi leaderboard za pointse
+                    clientSendMessage(conn,f"req ulw:{getLeaderBoardWinRate()}")
             else:
                     clientSendMessage(conn,"inf Wrong command!")
         except:
@@ -252,14 +261,13 @@ def newConnection():
 
             if(check_password_hash(account["password"],acc[2])):
                 #create client object
-                client=Client(conn=conn,
-                              name=account["name"],
-                              playerId=account["playerId"],
-                              friends=account["friends"],
+                client=Client(conn=conn,name=account["name"],playerId=account["playerId"],friends=account["friends"],
                               coins=account["coins"],
                               points=account["points"],
                               boughtItems=account["boughtItems"],
-                              selectedHero=account["selectedHero"])
+                              selectedHero=account["selectedHero"],
+                              gamesPlayed=account["gamesPlayed"],
+                              gamesWon=account["gamesWon"])
                 clients.append(client)
                 account["friends"]=client.friends=getFriends(getClient(conn))
                 account.pop("password")
@@ -325,6 +333,14 @@ def quitClient(conn):
     conn.close()
 def inviteClient(client,id): #client->sender,id->invited
     if client.room!="global":
+        #check if room si closed
+        room=None
+        for _room in rooms:
+            if _room.name==client.room:
+                room=_room
+        if room.status=="open":
+            clientSendMessage(client.conn,"inf cio") #cant invite from open room
+            return
         #get invited's client id
         clientInvited=None
         for _client in clients:
@@ -420,7 +436,9 @@ def handleGame(room):
                 clientSendMessage(player.conn,f"req die:60,-{deducePoints}")
                 joinRoom("global",player.conn)
     def rewardPlayers():
+        upit="UPDATE `players` SET `gamesWon`=gamesWon + 1 where "
         for player in room.players:
+            upit+=f"playerId={player.playerId} or "
             reward=player.boxes*3+100
             points=random.randrange(5,8)
 
@@ -433,7 +451,17 @@ def handleGame(room):
             dataBase.commit()
 
             clientSendMessage(player.conn,f"req win:{reward},{points}")
+        upit=upit[:-3]
+        connection.execute(upit)
+        dataBase.commit()
 
+    #update gamesplayer
+    upit="UPDATE `players` SET `gamesPlayed`=gamesPlayed + 1 where "
+    for player in room.players:
+        upit+=f"playerId={player.playerId} or "
+    upit=upit[:-3]
+    connection.execute(upit)
+    dataBase.commit()
 
     #ucitaj gameplay scenu
     broadCast("req load gameplay scene")
@@ -645,15 +673,76 @@ def checkIfFriendIsOnline(friendId):
             return True
     return False
 
+#leaderboard
+def updateLeaderBoardPoints():
+    #select data from all clients
+    sql="SELECT name,points from players"
+    connection.execute(sql)
+    playersScores=connection.fetchall()
+
+    #update leaderboard
+    for playerScore in playersScores:
+        for score in leaderboardPoints:
+            if playerScore.get('points')>score[1]:
+                leaderboardPoints.insert(leaderboardPoints.index(score),[str(playerScore.get('name')),int(playerScore.get('points'))])
+                break
+        del leaderboardPoints[10:]
+def updateLeaderBoardWinrate():
+    #select data from all clients
+    sql="SELECT name,gamesPlayed,gamesWon from players"
+    connection.execute(sql)
+    playersScores=connection.fetchall()
+
+    #update leaderboard
+    for playerScore in playersScores:
+        if playerScore.get('gamesPlayed')!=0:
+            winrate=int((int(playerScore.get('gamesWon'))/int(playerScore.get('gamesPlayed')))*100)
+            for score in leaderboardWinrate:
+                if winrate>score[1]:
+                    leaderboardWinrate.insert(leaderboardWinrate.index(score),[str(playerScore.get('name')),winrate])
+                    break
+            del leaderboardWinrate[10:]
+def getLeaderBoardPoints():
+    scores=""
+    for score in leaderboardPoints:
+        scores+=f"{score[0]},{score[1]}-"
+    scores=scores[:-1]
+    return scores
+def getLeaderBoardWinRate():
+    scores=""
+    for score in leaderboardWinrate:
+        scores+=f"{score[0]},{score[1]}-"
+    scores=scores[:-1]
+    return scores
+def handleUpdates():
+    updateLeaderBoardPoints()
+    updateLeaderBoardWinrate()
+    lastUpdate=datetime.now()
+    while True:
+        currentTime = datetime.now()
+        if((currentTime.day>lastUpdate.day or currentTime.month>lastUpdate.month or currentTime.year>lastUpdate.year) and currentTime.hour>=13):
+            updateLeaderBoardPoints()
+            updateLeaderBoardWinrate()
+        time.sleep(60)
 
 
 def handleServerCommands():
     while True:
         command=input()
-        if command=="rooms":
+        if command=="get rooms":
             output="----------------\n"
             for room in rooms:
                 output+=str(room)+"\n----------------\n"
+            print(output)
+        if command=="get leaderboard points":
+            output="----------------\n"
+            for score in leaderboardPoints:
+                output+=str(score)+"\n----------------\n"
+            print(output)
+        if command=="get leaderboard winrate":
+            output="----------------\n"
+            for score in leaderboardWinrate:
+                output+=str(score)+"\n----------------\n"
             print(output)
 #-------------------StartsServer
 
@@ -664,6 +753,17 @@ server.listen() #pokrece
 globalRoom=Room("global")
 globalRoom.maxPlayers=-1
 rooms.append(globalRoom)
+
+#set def leaderboard for points
+for i in range(10):
+    leaderboardPoints.append(["placeHolder",0])
+
+#set def leaderboard for wr
+for i in range(10):
+    leaderboardWinrate.append(["placeHolder",0])
+
+thread_handleUpdates=threading.Thread(target=handleUpdates) #jednom dnevno updejtuje leaderboard
+thread_handleUpdates.start()
 
 
 thread_handleConnections=threading.Thread(target=newConnection) #slusa za nove konekcije
