@@ -7,6 +7,9 @@ import mysql.connector
 from werkzeug.security import generate_password_hash,check_password_hash
 import time
 from datetime import datetime
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 
 #-------------------Classes
@@ -80,6 +83,10 @@ clients=[]
 leaderboardPoints=[]
 leaderboardWinrate=[]
 questions=questionsAndAnswers.questions
+
+#email
+sender = "rr2inaf0001@gmail.com"
+senderPass="Rr2rr2111"
 
 #-------------------Functions
 
@@ -249,43 +256,41 @@ def handleClient(conn): #tretira poruke od klijenta
         except:
 
             break
-def newConnection():
-    def login(conn,acc):
-        sql="SELECT * FROM players where email=%s"
-        value=(acc[1],)
+def login(conn,acc):
+    sql="SELECT * FROM players where email=%s"
+    value=(acc[1],)
 
-        connection.execute(sql,value)
-        account=connection.fetchone()
+    connection.execute(sql,value)
+    account=connection.fetchone()
 
-        if account:
+    if account:
+        if(check_password_hash(account["password"],acc[2])):
+            #create client object
+            client=Client(conn=conn,name=account["name"],playerId=account["playerId"],friends=account["friends"],
+                          coins=account["coins"],
+                          points=account["points"],
+                          boughtItems=account["boughtItems"],
+                          selectedHero=account["selectedHero"],
+                          gamesPlayed=account["gamesPlayed"],
+                          gamesWon=account["gamesWon"])
+            clients.append(client)
+            account["friends"]=client.friends=getFriends(getClient(conn))
+            account.pop("password")
+            clientSendMessage(client.conn,f"inf connected/{json.dumps(account)}")
 
-            if(check_password_hash(account["password"],acc[2])):
-                #create client object
-                client=Client(conn=conn,name=account["name"],playerId=account["playerId"],friends=account["friends"],
-                              coins=account["coins"],
-                              points=account["points"],
-                              boughtItems=account["boughtItems"],
-                              selectedHero=account["selectedHero"],
-                              gamesPlayed=account["gamesPlayed"],
-                              gamesWon=account["gamesWon"])
-                clients.append(client)
-                account["friends"]=client.friends=getFriends(getClient(conn))
-                account.pop("password")
-                clientSendMessage(client.conn,f"inf connected/{json.dumps(account)}")
+            #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
 
-                #pravi novi thread za klijenta kako bi mogao da opsluzi novog klijenta
-
-                thread = threading.Thread(target=handleClient,args=(client.conn,))
-                thread.start()
-            else:
-                clientSendMessage(conn.send,"err cre")
-                conn.close()
+            thread = threading.Thread(target=handleClient,args=(client.conn,))
+            thread.start()
         else:
             clientSendMessage(conn.send,"err cre")
             conn.close()
-
-
+    else:
+        clientSendMessage(conn.send,"err cre")
+        conn.close()
+def newConnection():
     print(f"Server started on port {port}")
+
     while True:
         conn,address = server.accept() #ceka dok ne dodje do neke konekcije
         clientSendMessage(conn,"req acc")
@@ -293,24 +298,8 @@ def newConnection():
         if acc[0]=="/log":
             login(conn,acc)
         else:
-            #proveri da li emajl vec postoji
-            sql="SELECT email from players where email=%s"
-            value=(acc[1],)
-
-            connection.execute(sql,value)
-            exsists=connection.fetchall()
-
-            if exsists:
-                clientSendMessage(conn,"err exsists")
-                conn.close()
-            else:
-                sql="INSERT INTO `players`(  `email`, `password`,`name`) VALUES (%s,%s,%s)"
-                value=(acc[1],generate_password_hash(acc[2]),acc[3])
-
-                connection.execute(sql,value)
-                dataBase.commit()
-
-                login(conn,acc)
+            thread_hadleAccountCreation=threading.Thread(target=handleAccountCreation,args=(conn,acc))
+            thread_hadleAccountCreation.start()
 def clientSendMessage(conn,message):
     try:
         conn.send(str(message).encode(encode_format))
@@ -358,6 +347,41 @@ def inviteClient(client,id): #client->sender,id->invited
             clientSendMessage(client.conn,f"req lfm:{result}")
     else:
         clientSendMessage(client.conn,"inf cig") #cant invite from global room
+def handleAccountCreation(conn,acc):
+    #proveri da li emajl vec postoji
+    sql="SELECT email from players where email=%s"
+    value=(acc[1],)
+
+    connection.execute(sql,value)
+    exsists=connection.fetchall()
+
+    if exsists:
+        clientSendMessage(conn,"err exs") #client with this email already exsists
+        conn.close()
+    else:
+        verificationNumber=random.randrange(100000,999999)
+        if sendEmail(receiver=acc[1],subject="Account verification",text=f"Hello {acc[3]},\n \nYour verification code is:{verificationNumber}\n \nIf you didnt create account in 'gamename' please ignore this message."):
+            while True:
+                try:
+                    clientSendMessage(conn,"req ver") #request verification
+                    answer=conn.recv(1024).decode(encode_format)
+                    if(answer==str(verificationNumber)):
+                        sql="INSERT INTO `players`(  `email`, `password`,`name`) VALUES (%s,%s,%s)"
+                        value=(acc[1],generate_password_hash(acc[2]),acc[3])
+
+                        connection.execute(sql,value)
+                        dataBase.commit()
+
+                        login(conn,acc)
+                    elif (answer=="cancel"):
+                        conn.close()
+                        break
+                    else:
+                        clientSendMessage(conn,"inf vvr") #inform client that he sent wrong verification
+                except:
+                    break
+            else:
+                clientSendMessage(conn,"inf wve") # wrong verification email
 
 #game
 def handleGame(room):
@@ -726,6 +750,24 @@ def handleUpdates():
         time.sleep(60)
 
 
+#email
+def sendEmail(receiver,text,subject):
+    try:
+        message = MIMEMultipart()
+        message['From'] = sender
+        message['To'] = receiver
+        message['Subject'] = subject
+        message.attach(MIMEText(text, 'plain'))
+        session = smtplib.SMTP('smtp.gmail.com', 587)
+        session.starttls()
+        session.login(sender, senderPass) #login with mail_id and password
+        text = message.as_string()
+        session.sendmail(sender, receiver, text)
+        session.quit()
+        return True
+    except:
+        return False
+
 def handleServerCommands():
     while True:
         command=input()
@@ -761,6 +803,7 @@ for i in range(10):
 #set def leaderboard for wr
 for i in range(10):
     leaderboardWinrate.append(["placeHolder",0])
+
 
 thread_handleUpdates=threading.Thread(target=handleUpdates) #jednom dnevno updejtuje leaderboard
 thread_handleUpdates.start()
