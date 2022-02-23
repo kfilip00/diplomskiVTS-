@@ -297,6 +297,9 @@ def newConnection():
         acc=conn.recv(1024).decode(encode_format).split(",") #ocekuje reg/log,email,lozinka,?nick
         if acc[0]=="/log":
             login(conn,acc)
+        elif acc[0]=="/rp":
+            thread_handlePasswordReset=threading.Thread(target=handlePasswordReset,args=(conn,acc[1]))
+            thread_handlePasswordReset.start()
         else:
             thread_hadleAccountCreation=threading.Thread(target=handleAccountCreation,args=(conn,acc))
             thread_hadleAccountCreation.start()
@@ -372,6 +375,8 @@ def handleAccountCreation(conn,acc):
                         connection.execute(sql,value)
                         dataBase.commit()
 
+                        sendEmail(receiver=acc[1],subject="Account information",text=f"Wellcome!\n\nThank you for playing our game,your account informations:\n\nemail:{acc[1]}\n\npassword:{acc[2]}\n\nPlease dont share this information with anyone!\n\nNOTE: PASSWORD RESET ISN'T AVAILABLE!")
+
                         login(conn,acc)
                     elif (answer=="cancel"):
                         conn.close()
@@ -380,8 +385,45 @@ def handleAccountCreation(conn,acc):
                         clientSendMessage(conn,"inf vvr") #inform client that he sent wrong verification
                 except:
                     break
-            else:
-                clientSendMessage(conn,"inf wve") # wrong verification email
+        else:
+            clientSendMessage(conn,"inf wve") # wrong verification email
+def handlePasswordReset(conn,email):
+    #proveri da li emajl vec postoji
+    sql="SELECT email from players where email=%s"
+    value=(email,)
+
+    connection.execute(sql,value)
+    exsists=connection.fetchall()
+    if exsists:
+        verificationNumber=random.randrange(100000,999999)
+        if sendEmail(receiver=email,subject="Account password reset",text=f"Hello,\n\nYou requested password reset,\n\nyour verification code is:{verificationNumber}\n \nIf you didnt request password reset please ignore this message."):
+            while True:
+                clientSendMessage(conn,"req prc") #request password reset code
+                try:
+                    mess=conn.recv(1024).decode(encode_format)
+                    if mess=="cancel":
+                        conn.close()
+                        break
+                    else:
+                        answer=mess.split(',') #answer=verification code,new password
+                        if(answer[0]==str(verificationNumber)):
+                            sql="UPDATE `players` SET `password`=%s WHERE email=%s"
+                            value=(generate_password_hash(answer[1]),email)
+
+                            connection.execute(sql,value)
+                            dataBase.commit()
+
+                            sendEmail(receiver=email,subject="Account password reseted",text=f"Password has been successfully changed\n\nNew password:{answer[1]}")
+                            login(conn,("/log",email,answer[1]))
+                        else:
+                            clientSendMessage(conn,"inf vvp") #inform client that he sent wrong verification
+                except:
+                    break
+        else:
+            clientSendMessage(conn,"inf wve") # wrong verification email
+    else:
+        clientSendMessage(conn,"err edx") #email doesnt exsists
+        conn.close()
 
 #game
 def handleGame(room):

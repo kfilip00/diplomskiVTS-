@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 18, 2022 at 09:29 PM
+-- Generation Time: Feb 23, 2022 at 08:44 PM
 -- Server version: 10.4.22-MariaDB
 -- PHP Version: 8.0.13
 
@@ -62,7 +62,8 @@ INSERT INTO `players` (`playerId`, `name`, `email`, `password`, `friends`, `coin
 (3, 'deki', 'deki@gmail.com', 'pbkdf2:sha256:260000$nDT0zA3LlP5SzNBG$2c177b8815ae29dd12612fd0b05b03e1df9481f1e7f971213ad91ba9176dfd0f', '0,2,7', 120, 0, '-', 0, 0, 0),
 (4, 'duki', 'duki@gmail.com', 'pbkdf2:sha256:260000$O4zeVLzq7mftwhrX$cd6adf43dafa8043ffb43653dfdb7f2d9318d303e5a6d2680c7d5aa8e5a1c032', '0,2', 4107, 7, '-', 0, 2, 0),
 (7, 'fiki', 'fiki@gmail.com', 'pbkdf2:sha256:260000$RpBNz1Mobte1Ctcr$90f843acf8454a6980912c5b450e8ea449443e40fd9dde82d59c73550da8cb48', '0,3', 257, 26, '-', 0, 0, 0),
-(8, 'miki', 'miki@gmail.com', 'pbkdf2:sha256:260000$JulNshJBTmUZ66NQ$e5d2f46c8201b3fdcca42a22afeb74ed5dbd8f29f0f5c0386a302c9640d3b4f2', '0', 0, 0, '-', 0, 0, 0);
+(8, 'miki', 'miki@gmail.com', 'pbkdf2:sha256:260000$JulNshJBTmUZ66NQ$e5d2f46c8201b3fdcca42a22afeb74ed5dbd8f29f0f5c0386a302c9640d3b4f2', '0', 0, 0, '-', 0, 0, 0),
+(10, 'logoji1256', 'logoji1256@sueshaw.com', 'pbkdf2:sha256:260000$ClTpOpNJVMO73da5$529021757f8a33fe7f559ddfe581546e4707de7adcef1bc3e5521481130a052a', '0', 0, 0, '-', 0, 0, 0);
 
 --
 -- Indexes for dumped tables
@@ -97,7 +98,7 @@ ALTER TABLE `friendrequests`
 -- AUTO_INCREMENT for table `players`
 --
 ALTER TABLE `players`
-  MODIFY `playerId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `playerId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Constraints for dumped tables
