@@ -375,7 +375,7 @@ def handleAccountCreation(conn,acc):
                         connection.execute(sql,value)
                         dataBase.commit()
 
-                        sendEmail(receiver=acc[1],subject="Account information",text=f"Wellcome!\n\nThank you for playing our game,your account informations:\n\nemail:{acc[1]}\n\npassword:{acc[2]}\n\nPlease dont share this information with anyone!\n\nNOTE: PASSWORD RESET ISN'T AVAILABLE!")
+                        sendEmail(receiver=acc[1],subject="Account information",text=f"Wellcome!\n\nThank you for playing our game,your account informations:\n\nemail:{acc[1]}\n\npassword:{acc[2]}\n\nPlease dont share this information with anyone!")
 
                         login(conn,acc)
                     elif (answer=="cancel"):
