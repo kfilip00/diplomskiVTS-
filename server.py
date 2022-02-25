@@ -283,7 +283,7 @@ def login(conn,acc):
             thread = threading.Thread(target=handleClient,args=(client.conn,))
             thread.start()
         else:
-            clientSendMessage(conn.send,"err cre")
+            clientSendMessage(conn,"err cre")
             conn.close()
     else:
         clientSendMessage(conn.send,"err cre")
@@ -315,9 +315,13 @@ def getClient(conn):
         if client.getConn() == conn:
             return client
 def kickClient(conn):
-    client=getClient(conn)
-    leaveRoom(client)
-    clients.remove(client)
+    try:
+        client=getClient(conn)
+        leaveRoom(client)
+        clients.remove(client)
+    except:
+        pass
+        #client already left
 def quitClient(conn):
     client=getClient(conn)
     clients.remove(client)
@@ -378,6 +382,7 @@ def handleAccountCreation(conn,acc):
                         sendEmail(receiver=acc[1],subject="Account information",text=f"Wellcome!\n\nThank you for playing our game,your account informations:\n\nemail:{acc[1]}\n\npassword:{acc[2]}\n\nPlease dont share this information with anyone!")
 
                         login(conn,acc)
+                        return
                     elif (answer=="cancel"):
                         conn.close()
                         break
@@ -415,6 +420,7 @@ def handlePasswordReset(conn,email):
 
                             sendEmail(receiver=email,subject="Account password reseted",text=f"Password has been successfully changed\n\nNew password:{answer[1]}")
                             login(conn,("/log",email,answer[1]))
+                            return
                         else:
                             clientSendMessage(conn,"inf vvp") #inform client that he sent wrong verification
                 except:
@@ -828,6 +834,14 @@ def handleServerCommands():
             for score in leaderboardWinrate:
                 output+=str(score)+"\n----------------\n"
             print(output)
+        if command=="get clients":
+            output="----------------\n"
+            if len(clients)>0:
+                for client in clients:
+                    output+=str(client)+"\n----------------\n"
+            else:
+                output+="None"
+            print(output)
 #-------------------StartsServer
 
 server= socket.socket(socket.AF_INET,socket.SOCK_STREAM) #ozncava da cemo da radimo sa ipv4 adresama i da cemo koristiti TCP
@@ -842,12 +856,12 @@ rooms.append(globalRoom)
 for i in range(10):
     leaderboardPoints.append(["placeHolder",0])
 
-#set def leaderboard for wr
+#set def leaderboard for win rate
 for i in range(10):
     leaderboardWinrate.append(["placeHolder",0])
 
 
-thread_handleUpdates=threading.Thread(target=handleUpdates) #jednom dnevno updejtuje leaderboard
+thread_handleUpdates=threading.Thread(target=handleUpdates) #jednom dnevno updejtuje leaderboarde
 thread_handleUpdates.start()
 
 
