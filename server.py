@@ -492,21 +492,27 @@ def handleGame(room):
         message=message[:-1]
         broadCast(message)
     def checkIfSomeoneDied():
+        kickPlayers=[]
         for player in room.players:
             if player.boxes<0:
+                kickPlayers.append(player)
                 player.died=True
                 deducePoints=0
                 if player.points>10:
                     deducePoints=random.randrange(6,10)
                     player.points-=deducePoints
                 player.coins+=60
+
+                clientSendMessage(player.conn,f"req die:60,-{deducePoints}")
+
                 sql=f"UPDATE players SET coins = coins+60,points=points-{deducePoints} WHERE playerId = %s;"
                 value=(player.playerId,)
                 connection.execute(sql,value)
                 dataBase.commit()
 
-                clientSendMessage(player.conn,f"req die:60,-{deducePoints}")
-                joinRoom("global",player.conn)
+        for player in kickPlayers:
+            joinRoom("global",player.conn)
+
     def rewardPlayers():
         upit="UPDATE `players` SET `gamesWon`=gamesWon + 1 where "
         for player in room.players:
@@ -517,12 +523,13 @@ def handleGame(room):
             player.points+=points
             player.coins+=reward
 
+            clientSendMessage(player.conn,f"req win:{reward},{points}")
+
             sql=f"UPDATE players SET coins = coins+{reward},points=points+{points} WHERE playerId = %s;"
             value=(player.playerId,)
             connection.execute(sql,value)
             dataBase.commit()
 
-            clientSendMessage(player.conn,f"req win:{reward},{points}")
         upit=upit[:-3]
         connection.execute(upit)
         dataBase.commit()
@@ -548,7 +555,7 @@ def handleGame(room):
     playersNames=playersNames[:-1]
 
     #spawnuj igrace sa imenima
-    broadCast("req spawn players: "+str(playersNames))
+    broadCast("req spawn players:"+str(playersNames))
     waitForPlayers(5)
 
     #daj svim igracima po 3 kutije
@@ -589,12 +596,13 @@ def handleGame(room):
         if len(room.players)<=1:
             break
 
+    if len(room.players)==0:
+        return
     rewardPlayers()
-
     room.status="closing"
-
     #close game
-    for player in room.players:
+    playersClose=list.copy(room.players)
+    for player in playersClose:
         joinRoom("global",player.conn)
 def startGame(conn):
     global minPlayers
@@ -767,7 +775,7 @@ def updateLeaderBoardWinrate():
 
     #update leaderboard
     for playerScore in playersScores:
-        if playerScore.get('gamesPlayed')!=0:
+        if playerScore.get('gamesPlayed')>=100: #minimalno 100 gejmova mora da se odigra kako bi usao u statistiku
             winrate=int((int(playerScore.get('gamesWon'))/int(playerScore.get('gamesPlayed')))*100)
             for score in leaderboardWinrate:
                 if winrate>score[1]:
