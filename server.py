@@ -51,7 +51,7 @@ class Client:
         self.action=-1
         self.boxes=0
         self.selectedHero=selectedHero
-        self.died=False
+        #self.died=False
         self.gamesPlayed=gamesPlayed
         self.gamesWon=gamesWon
 
@@ -169,8 +169,9 @@ def leaveRoom(client):
     clientIndex=room.players.index(client)
     room.players.remove(client)
 
-    if room.status=="inprogress" and client.died==False:
+    if room.status=="inprogress": #and client.died==False:
         mess=f"req rpg:{clientIndex}" #remove player in game
+        print(client.name+" has left,kick him")
         for player in room.players:
             clientSendMessage(player.conn,str(mess))
 
@@ -496,7 +497,7 @@ def handleGame(room):
         for player in room.players:
             if player.boxes<0:
                 kickPlayers.append(player)
-                player.died=True
+                #player.died=True
                 deducePoints=0
                 if player.points>10:
                     deducePoints=random.randrange(6,10)
@@ -551,7 +552,7 @@ def handleGame(room):
     for player in room.players:
         playersNames+=f"{str(player.name)}-{player.selectedHero},"
         player.boxes=0
-        player.died=False
+        #player.died=False
     playersNames=playersNames[:-1]
 
     #spawnuj igrace sa imenima
