@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 23, 2022 at 08:44 PM
+-- Generation Time: May 14, 2022 at 03:14 PM
 -- Server version: 10.4.22-MariaDB
 -- PHP Version: 8.0.13
 
@@ -58,12 +58,11 @@ CREATE TABLE `players` (
 --
 
 INSERT INTO `players` (`playerId`, `name`, `email`, `password`, `friends`, `coins`, `points`, `boughtItems`, `selectedHero`, `gamesPlayed`, `gamesWon`) VALUES
-(2, 'stefi', 'stefi@gmail.com', 'pbkdf2:sha256:260000$t2hJmvDfhJUBuWGS$549bfc11e8367e1816c77a3a2e636b2fcca8aa5278b7f70f0f5636808ae1a952', '0,3,4', 6809, 254, '-', 0, 2, 1),
-(3, 'deki', 'deki@gmail.com', 'pbkdf2:sha256:260000$nDT0zA3LlP5SzNBG$2c177b8815ae29dd12612fd0b05b03e1df9481f1e7f971213ad91ba9176dfd0f', '0,2,7', 120, 0, '-', 0, 0, 0),
-(4, 'duki', 'duki@gmail.com', 'pbkdf2:sha256:260000$O4zeVLzq7mftwhrX$cd6adf43dafa8043ffb43653dfdb7f2d9318d303e5a6d2680c7d5aa8e5a1c032', '0,2', 4107, 7, '-', 0, 2, 0),
-(7, 'fiki', 'fiki@gmail.com', 'pbkdf2:sha256:260000$RpBNz1Mobte1Ctcr$90f843acf8454a6980912c5b450e8ea449443e40fd9dde82d59c73550da8cb48', '0,3', 257, 26, '-', 0, 0, 0),
-(8, 'miki', 'miki@gmail.com', 'pbkdf2:sha256:260000$JulNshJBTmUZ66NQ$e5d2f46c8201b3fdcca42a22afeb74ed5dbd8f29f0f5c0386a302c9640d3b4f2', '0', 0, 0, '-', 0, 0, 0),
-(10, 'logoji1256', 'logoji1256@sueshaw.com', 'pbkdf2:sha256:260000$ClTpOpNJVMO73da5$529021757f8a33fe7f559ddfe581546e4707de7adcef1bc3e5521481130a052a', '0', 0, 0, '-', 0, 0, 0);
+(2, 'stefi', 'stefi@gmail.com', 'pbkdf2:sha256:260000$t2hJmvDfhJUBuWGS$549bfc11e8367e1816c77a3a2e636b2fcca8aa5278b7f70f0f5636808ae1a952', '0,3,4', 10393, 971, '-', 0, 170, 59),
+(3, 'deki', 'deki@gmail.com', 'pbkdf2:sha256:260000$nDT0zA3LlP5SzNBG$2c177b8815ae29dd12612fd0b05b03e1df9481f1e7f971213ad91ba9176dfd0f', '0,2,7,4', 1647, 566, '-', 0, 26, 4),
+(4, 'duki', 'duki@gmail.com', 'pbkdf2:sha256:260000$O4zeVLzq7mftwhrX$cd6adf43dafa8043ffb43653dfdb7f2d9318d303e5a6d2680c7d5aa8e5a1c032', '0,2,3', 8214, 9, '-', 0, 165, 89),
+(7, 'fiki', 'fiki@gmail.com', 'pbkdf2:sha256:260000$RpBNz1Mobte1Ctcr$90f843acf8454a6980912c5b450e8ea449443e40fd9dde82d59c73550da8cb48', '0,3', 1535, 15, '-', 0, 18, 6),
+(8, 'miki', 'miki@gmail.com', 'pbkdf2:sha256:260000$JulNshJBTmUZ66NQ$e5d2f46c8201b3fdcca42a22afeb74ed5dbd8f29f0f5c0386a302c9640d3b4f2', '0', 1093, 10, '-', 0, 88, 29);
 
 --
 -- Indexes for dumped tables
@@ -92,13 +91,13 @@ ALTER TABLE `players`
 -- AUTO_INCREMENT for table `friendrequests`
 --
 ALTER TABLE `friendrequests`
-  MODIFY `requestId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `requestId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `players`
 --
 ALTER TABLE `players`
-  MODIFY `playerId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `playerId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Constraints for dumped tables
