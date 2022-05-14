@@ -18,6 +18,7 @@ class Room:
         self.name=name
         self.players=[]
         self.status="open"
+        self.type=""
 
     def __str__(self):
         players=""
@@ -153,8 +154,10 @@ def createRoom(name,conn,closed=False):
     rooms.append(room)
     if closed:
         room.status="closed"
+        room.type="friendly"
     else:
         room.status="open"
+        room.type="regular"
     joinRoom(name,conn,True)
 def deleteRoom(room):
         rooms.remove(room)
@@ -494,19 +497,26 @@ def handleGame(room):
         broadCast(message)
     def checkIfSomeoneDied():
         kickPlayers=[]
+        deducePoints=0
+        addCoins=60
+        if(room.type=="friendly"):
+            addCoins=0
+            deducePoints=0
         for player in room.players:
             if player.boxes<0:
                 kickPlayers.append(player)
                 #player.died=True
                 deducePoints=0
-                if player.points>10:
+
+                if player.points>10 and room.type!="friendly":
                     deducePoints=random.randrange(6,10)
                     player.points-=deducePoints
-                player.coins+=60
 
-                clientSendMessage(player.conn,f"req die:60,-{deducePoints}")
+                player.coins+=addCoins
 
-                sql=f"UPDATE players SET coins = coins+60,points=points-{deducePoints} WHERE playerId = %s;"
+                clientSendMessage(player.conn,f"req die:{addCoins},-{deducePoints}")
+
+                sql=f"UPDATE players SET coins = coins+{addCoins},points=points-{deducePoints} WHERE playerId = %s;"
                 value=(player.playerId,)
                 connection.execute(sql,value)
                 dataBase.commit()
@@ -516,11 +526,14 @@ def handleGame(room):
 
     def rewardPlayers():
         upit="UPDATE `players` SET `gamesWon`=gamesWon + 1 where "
+
         for player in room.players:
             upit+=f"playerId={player.playerId} or "
             reward=player.boxes*3+100
             points=random.randrange(5,8)
-
+            if room.type=="friendly":
+                reward=0
+                points=0
             player.points+=points
             player.coins+=reward
 
