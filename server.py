@@ -87,7 +87,7 @@ questions=questionsAndAnswers.questions
 
 #email
 sender = "rr2inaf0001@gmail.com"
-senderPass="Rr2rr2111"
+senderPass="nkqgmvfdpwcksecl"
 
 #-------------------Functions
 
@@ -290,7 +290,7 @@ def login(conn,acc):
             clientSendMessage(conn,"err cre")
             conn.close()
     else:
-        clientSendMessage(conn.send,"err cre")
+        clientSendMessage(conn,"err cre")
         conn.close()
 def newConnection():
     print(f"Server started on port {port}")
@@ -400,7 +400,6 @@ def handlePasswordReset(conn,email):
     #proveri da li emajl vec postoji
     sql="SELECT email from players where email=%s"
     value=(email,)
-
     connection.execute(sql,value)
     exsists=connection.fetchall()
     if exsists:
